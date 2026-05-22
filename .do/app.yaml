@@ -2,15 +2,17 @@ name: doodoo-fam
 services:
   - name: api
     source_dir: /doodoo
-    github: 
-      repo: https://github.com/jiaenkoh45/nxMonorepo.git
+    github:
+      repo: jiaenkoh45/nxMonorepo
       branch: master
       deploy_on_push: true
     build_command: npm install && npm run build
-    run_command: node dist/main.js
+    run_command: node dist/src/main.js
     environment_slug: node-js
     instance_size_slug: apps-s-1vcpu-0.5gb
     http_port: 8080
+    routes:
+      - path: /api
     envs:
       - key: PORT
         value: "8080"
@@ -28,7 +30,7 @@ services:
   - name: web
     source_dir: /
     github:
-      repo: https://github.com/jiaenkoh45/nxMonorepo.git
+      repo: jiaenkoh45/nxMonorepo
       branch: master
       deploy_on_push: true
     build_command: npm install && npm run build:prod
@@ -36,6 +38,8 @@ services:
     environment_slug: node-js
     instance_size_slug: apps-s-1vcpu-0.5gb
     http_port: 8080
+    routes:
+      - path: /
     envs:
       - key: PORT
         value: "8080"
