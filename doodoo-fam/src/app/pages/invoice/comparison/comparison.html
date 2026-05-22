@@ -1,0 +1,314 @@
+<div class="comparison-container">
+
+  <!-- ── UPLOAD VIEW ─────────────────────────────────────────────── -->
+  @if (!result()) {
+  <div class="upload-view">
+    <h2 class="page-title">Compare</h2>
+
+    <div class="upload-grid">
+
+      <!-- CLIENT PANEL -->
+      <div class="invoice-panel">
+        <div class="panel-header">
+          <span class="panel-label">Client Invoice</span>
+          <div class="panel-actions">
+            <button class="btn-action" (click)="openPicker('client')">
+              <span class="material-symbols-outlined">folder_open</span> Browse
+            </button>
+            <label class="btn-action">
+              <span class="material-symbols-outlined">upload_file</span> Upload
+              <input type="file" accept=".pdf,application/pdf" multiple
+                (change)="onFilesAdded('client', $event)" hidden />
+            </label>
+          </div>
+        </div>
+
+        <div class="panel-preview">
+          @if (clientFiles().length > 0 && clientPreview()) {
+            <embed [src]="clientPreview()!" type="application/pdf" class="preview-img" />
+          } @else {
+            <div class="preview-empty">
+              <span class="material-symbols-outlined preview-empty__icon">receipt_long</span>
+              <span>Upload invoices to preview</span>
+            </div>
+          }
+          @if (clientFiles().length > 0) {
+            <div class="preview-badge">{{ clientFiles()[activeClientIdx()].name }}</div>
+          }
+        </div>
+
+        @if (clientFiles().length > 0) {
+        <div class="thumb-strip">
+          @for (entry of clientFiles(); track entry.name; let i = $index) {
+          <div class="thumb" [class.thumb--active]="i === activeClientIdx()"
+            (click)="selectFile('client', i)">
+            <button class="thumb-remove" (click)="removeFile('client', i, $event)"
+              aria-label="Remove">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+            @if (entry.preview) {
+              <img [src]="entry.preview" class="thumb-img" alt="" />
+            } @else {
+              <div class="thumb-placeholder"><span class="material-symbols-outlined">receipt_long</span></div>
+            }
+            <span class="thumb-name">{{ entry.name }}</span>
+          </div>
+          }
+        </div>
+        }
+      </div>
+
+      <!-- CREDITOR PANEL -->
+      <div class="invoice-panel">
+        <div class="panel-header">
+          <span class="panel-label">Creditor Invoice</span>
+          <div class="panel-actions">
+            <button class="btn-action" (click)="openPicker('creditor')">
+              <span class="material-symbols-outlined">folder_open</span> Browse
+            </button>
+            <label class="btn-action">
+              <span class="material-symbols-outlined">upload_file</span> Upload
+              <input type="file" accept=".pdf,application/pdf" multiple
+                (change)="onFilesAdded('creditor', $event)" hidden />
+            </label>
+          </div>
+        </div>
+
+        <div class="panel-preview">
+          @if (creditorFiles().length > 0 && creditorPreview()) {
+            <embed [src]="creditorPreview()!" type="application/pdf" class="preview-img" />
+          } @else {
+            <div class="preview-empty">
+              <span class="material-symbols-outlined preview-empty__icon">receipt_long</span>
+              <span>Upload invoices to preview</span>
+            </div>
+          }
+          @if (creditorFiles().length > 0) {
+            <div class="preview-badge">{{ creditorFiles()[activeCreditorIdx()].name }}</div>
+          }
+        </div>
+
+        @if (creditorFiles().length > 0) {
+        <div class="thumb-strip">
+          @for (entry of creditorFiles(); track entry.name; let i = $index) {
+          <div class="thumb" [class.thumb--active]="i === activeCreditorIdx()"
+            (click)="selectFile('creditor', i)">
+            <button class="thumb-remove" (click)="removeFile('creditor', i, $event)"
+              aria-label="Remove">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+            @if (entry.preview) {
+              <img [src]="entry.preview" class="thumb-img" alt="" />
+            } @else {
+              <div class="thumb-placeholder"><span class="material-symbols-outlined">receipt_long</span></div>
+            }
+            <span class="thumb-name">{{ entry.name }}</span>
+          </div>
+          }
+        </div>
+        }
+      </div>
+
+    </div><!-- /upload-grid -->
+
+    <div class="compare-action">
+      <button class="btn-compare" (click)="runComparison()"
+        [disabled]="isLoading() || clientFiles().length === 0 || creditorFiles().length === 0">
+        @if (isLoading()) {
+          <span class="material-symbols-outlined spin">sync</span> Parsing invoices…
+        } @else {
+          Start Comparing
+        }
+      </button>
+      <button class="btn-sample" (click)="loadSampleResult()">View sample results</button>
+    </div>
+
+    @if (parseError()) {
+      <div class="error-banner"><span class="material-symbols-outlined">warning</span> {{ parseError() }}</div>
+    }
+  </div>
+  }
+
+  <!-- ── RESULTS VIEW ────────────────────────────────────────────── -->
+  @if (result()) {
+  <div class="results-view">
+    <div class="results-header">
+      <h2 class="page-title">Compare – Results</h2>
+      <div class="results-badges">
+        <span class="badge badge--ok">{{ matchCount() }} matched</span>
+        @if (mismatchCount() > 0) {
+          <span class="badge badge--fail">{{ mismatchCount() }} mismatched</span>
+        }
+      </div>
+    </div>
+
+    <!-- ── ITEM-CODE TOTALS TABLE ──────────────────────────────── -->
+    <div class="totals-grid">
+
+      <!-- CLIENT totals -->
+      <div class="totals-panel">
+        <p class="totals-panel__label">Client Invoice</p>
+        <div class="totals-table">
+          <div class="totals-table__head">
+            <span>Item Code</span>
+            <span>Description</span>
+            <span class="num">Qty</span>
+          </div>
+          @for (row of result()!.items; track row.code) {
+          <div class="totals-row" [class.totals-row--mismatch]="!row.match">
+            <span class="totals-row__code">{{ row.code }}</span>
+            <span class="totals-row__desc">{{ row.description }}</span>
+            <span class="totals-row__qty num">{{ row.clientQty > 0 ? (row.clientQty | number:'1.2-2') + ' UNIT' : '—' }}</span>
+          </div>
+          }
+        </div>
+      </div>
+
+      <!-- CREDITOR totals -->
+      <div class="totals-panel">
+        <p class="totals-panel__label">Creditor Invoice</p>
+        <div class="totals-table">
+          <div class="totals-table__head">
+            <span>Item Code</span>
+            <span>Description</span>
+            <span class="num">Qty</span>
+          </div>
+          @for (row of result()!.items; track row.code) {
+          <div class="totals-row" [class.totals-row--mismatch]="!row.match">
+            <span class="totals-row__code">{{ row.code }}</span>
+            <span class="totals-row__desc">{{ row.description }}</span>
+            <span class="totals-row__qty num">{{ row.supplierQty > 0 ? (row.supplierQty | number:'1.2-2') + ' UNIT' : '—' }}</span>
+          </div>
+          }
+        </div>
+      </div>
+
+    </div><!-- /totals-grid -->
+
+    <!-- ── PER-CODE FILE BREAKDOWN (mismatches only) ──────────── -->
+    @if (mismatchCount() > 0) {
+    <div class="breakdown-section">
+      <p class="breakdown-title">Mismatch breakdown by item code</p>
+      @for (row of result()!.items; track row.code) {
+        @if (!row.match) {
+        <div class="breakdown-block">
+          <div class="breakdown-grid">
+
+            <!-- client files for this code -->
+            <div class="breakdown-col">
+              <p class="breakdown-col__label">Client Invoice</p>
+              <div class="breakdown-table">
+                <div class="breakdown-table__head">
+                  <span>Invoice No.</span>
+                  <span>Item Code</span>
+                  <span>Customer Name</span>
+                  <span class="num">Qty</span>
+                </div>
+                @if (row.clientFiles.length > 0) {
+                  @for (f of row.clientFiles; track f.filename) {
+                  <div class="breakdown-row">
+                    <span>{{ f.filename }}</span>
+                    <span class="totals-row__code">{{ row.code }}</span>
+                    <span>{{ f.customerName }}</span>
+                    <span class="num">{{ f.qty | number:'1.2-2' }} UNIT</span>
+                  </div>
+                  }
+                } @else {
+                  <div class="breakdown-row breakdown-row--empty">
+                    <span>No client entries</span>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- creditor files for this code -->
+            <div class="breakdown-col">
+              <p class="breakdown-col__label">Creditor Invoice</p>
+              <div class="breakdown-table">
+                <div class="breakdown-table__head">
+                  <span>Invoice No.</span>
+                  <span>Item Code</span>
+                  <span>Customer Name</span>
+                  <span class="num">Qty</span>
+                </div>
+                @if (row.supplierFiles.length > 0) {
+                  @for (f of row.supplierFiles; track f.filename) {
+                  <div class="breakdown-row">
+                    <span>{{ f.filename }}</span>
+                    <span class="totals-row__code">{{ row.code }}</span>
+                    <span>{{ f.customerName }}</span>
+                    <span class="num">{{ f.qty | number:'1.2-2' }} UNIT</span>
+                  </div>
+                  }
+                } @else {
+                  <div class="breakdown-row breakdown-row--empty">
+                    <span>No creditor entries</span>
+                  </div>
+                }
+              </div>
+            </div>
+
+          </div>
+        </div>
+        }
+      }
+    </div>
+    }
+
+    <div class="results-actions">
+      <button class="btn-compare" (click)="reset()">Start a new comparison</button>
+    </div>
+  </div>
+  }
+
+  <!-- ── FILE PICKER MODAL ──────────────────────────────────────── -->
+  @if (pickerOpen()) {
+  <div class="picker-overlay">
+    <button class="picker-backdrop" (click)="closePicker()" aria-label="Close picker"></button>
+    <div class="picker-modal">
+
+      <div class="picker-header">
+        <span class="picker-title">Browse Creditor Files</span>
+        <button class="picker-close" (click)="closePicker()" aria-label="Close">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="picker-breadcrumb">
+        <button class="picker-crumb" (click)="pickerJumpTo(-1)">All Creditors</button>
+        @for (crumb of pickerPath(); track crumb.id; let i = $index; let last = $last) {
+          <span class="picker-crumb-sep material-symbols-outlined">chevron_right</span>
+          <button class="picker-crumb" [class.picker-crumb--active]="last"
+            (click)="!last && pickerJumpTo(i)">{{ crumb.name }}</button>
+        }
+      </div>
+
+      <div class="picker-content">
+        @if (pickerLoading()) {
+          <div class="picker-loading">
+            <span class="material-symbols-outlined spin">sync</span> Loading…
+          </div>
+        } @else if (pickerNodes().length === 0) {
+          <div class="picker-empty">
+            <span class="material-symbols-outlined">folder_off</span>
+            <span>Nothing here</span>
+          </div>
+        } @else {
+          <div class="picker-grid">
+            @for (node of pickerNodes(); track node.id) {
+            <button class="picker-item" [class.picker-item--file]="node.type === 'file'"
+              (click)="pickerNavigate(node)">
+              <span class="material-symbols-outlined">{{ pickerNodeIcon(node) }}</span>
+              <span class="picker-item-name">{{ node.name }}</span>
+            </button>
+            }
+          </div>
+        }
+      </div>
+
+    </div>
+  </div>
+  }
+
+</div>
+

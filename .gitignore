@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+out-tsc/
+
+# Angular / Nx caches
+.angular/
+.nx/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Environment / secrets — NEVER commit these
+.env
+.env.*
+!.env.example
+
+# SSL/TLS certificates and private keys
+*.pem
+*.p12
+*.pfx
+*.p8
+*.crt
+*.cer
+*.key
+
+# Service account and credential files (Google Cloud, Firebase, etc.)
+*service-account*.json
+*credentials*.json
+*serviceaccount*.json
+google-services.json
+firebase*.json
+
+# User uploads (production data — should not be in git)
+uploads/
+
+# Claude Code local settings and memory
+.claude/
+CLAUDE.md
+
+# PM2
+.pm2/
+pm2-*.log
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE / editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local debug helpers (created during local testing)
+debug-pdf.js
+debug-parse.js
+
+# Deployment script
+deploy.sh

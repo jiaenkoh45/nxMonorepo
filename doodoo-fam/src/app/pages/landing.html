@@ -1,0 +1,65 @@
+<div class="container" [class.container--menu-open]="menuOpen()">
+
+    <div class="sidebar">
+        <div class="logo">
+            <span></span>
+            <h1>DooAccount</h1>
+        </div>
+        <hr>
+        <nav class="sidebar_nav">
+            <p class="sidebar_label">menu</p>
+            <a class="sidebar_link" routerLink="/landing/creditors" routerLinkActive="sidebar_link--active" (click)="closeMenu()">Creditors</a>
+            <a class="sidebar_link" routerLink="/landing/comparisons" routerLinkActive="sidebar_link--active" (click)="closeMenu()">Comparison</a>
+            @if (canManageUsers()) {
+              <a class="sidebar_link" routerLink="/landing/users" routerLinkActive="sidebar_link--active" (click)="closeMenu()">Users</a>
+            }
+            <hr>
+            <a class="sidebar_link" routerLink="/settings" routerLinkActive="sidebar_link--active" (click)="closeMenu()">Settings</a>
+            <button class="sidebar_link sidebar_link--logout" type="button" (click)="logOut()">Log Out</button>
+        </nav>
+    </div>
+
+    <div class="header">
+        <button class="hamburger" type="button" (click)="toggleMenu()" [attr.aria-label]="menuOpen() ? 'Close menu' : 'Open menu'">
+            <span class="material-symbols-outlined">{{ menuOpen() ? 'close' : 'menu' }}</span>
+        </button>
+        <div class="search_bar">
+            <span class="material-symbols-outlined">
+                search
+            </span>
+            <input id="searchbar" placeholder="search">
+        </div>
+        <div class="profile">
+            <span class="material-symbols-outlined">account_circle</span>
+        </div>
+    </div>
+
+    <!-- Backdrop closes the menu when tapped (mobile only via CSS) -->
+    @if (menuOpen()) {
+        <div class="menu-backdrop" (click)="closeMenu()"></div>
+    }
+
+    <div class="content">
+        @if (isHome) {
+            <p>Widgets</p>
+            <div class="widgets">
+                <div class="comparison">
+                    <button class="widget" id="comparison" type="button" routerLink="/landing/comparisons">
+                        <img src="comparison.png" alt="Comparison">
+                        <p class="subtext">Comparison</p>
+                    </button>
+
+                    <button class="widget" id="creditors" type="button" routerLink="/landing/creditors">
+                        <img src="creator.png" alt="Creditors">
+                        <p class="subtext">Creditor</p>
+                    </button>
+                </div>
+                <div class="creditors"></div>
+            </div>
+            <div class="recent">
+                <p>Recently viewed</p>
+            </div>
+        }
+        <router-outlet></router-outlet>
+    </div>
+</div>

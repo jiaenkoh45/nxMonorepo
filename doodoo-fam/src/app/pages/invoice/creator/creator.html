@@ -1,0 +1,105 @@
+<main class="creator-main">
+
+  <!-- Breadcrumb + actions row -->
+  <div class="creator-toolbar">
+    <nav class="breadcrumb">
+      <button class="breadcrumb__crumb" (click)="navigateBreadcrumb(null)">Creditors</button>
+      @for (b of breadcrumb(); track b.id) {
+      <span class="breadcrumb__sep">&gt;</span>
+      <button class="breadcrumb__crumb" (click)="navigateBreadcrumb(b)">{{ b.name }}</button>
+      }
+    </nav>
+
+    @if (currentNodeId()) {
+    <button class="btn-zip" (click)="exportZip()">
+      ⬆ Compile as <strong>.zip folder</strong>
+    </button>
+    }
+  </div>
+
+  @if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+  }
+
+  <!-- ─── Creditor info card ─────────────────────────────────────── -->
+  @if (currentCreditor(); as c) {
+  <section class="creditor-info">
+    <div class="creditor-info__row">
+      <h2 class="creditor-info__name">{{ c.name }}</h2>
+      @if (canEdit()) {
+        <button class="creditor-info__edit" (click)="editCreditorInfo()" title="Edit info">✎ Edit info</button>
+      }
+    </div>
+    <div class="creditor-info__meta">
+      <span><strong>Phone:</strong> {{ c.phone || '—' }}</span>
+      <span><strong>Email:</strong> {{ c.email || '—' }}</span>
+    </div>
+    @if (c.description) {
+    <p class="creditor-info__desc">{{ c.description }}</p>
+    }
+  </section>
+  }
+
+  <!-- ─── Folder grid (always visible) ───────────────────────────── -->
+  <div class="grid grid--folders">
+    @for (folder of folders(); track folder.id) {
+    <div class="folder-card" (click)="openNode(folder.id)">
+      <span class="material-symbols-outlined">
+        folder
+      </span>
+      <span class="folder-card__name">{{ folder.name }}</span>
+      @if (canEdit()) {
+        <button class="folder-card__menu" (click)="renameNode(folder, $event)" title="Rename">⋮</button>
+        <button class="folder-card__delete" (click)="deleteNode(folder, $event)" title="Delete">×</button>
+      }
+    </div>
+    }
+
+    @if (canEdit()) {
+      @if (isAtRoot()) {
+      <button class="folder-card folder-card--new" (click)="addCreditor()">
+        <span class="folder-card__icon">+</span>
+        <span class="folder-card__name">New Creditor</span>
+      </button>
+      } @else {
+      <button class="folder-card folder-card--new" (click)="addFolder()">
+        <span class="folder-card__icon">+</span>
+        <span class="folder-card__name">New Folder</span>
+      </button>
+      }
+    }
+  </div>
+
+  <!-- ─── File grid (visible only inside a node) ─────────────────── -->
+  @if (!isAtRoot()) {
+  <div class="grid grid--files">
+    @for (f of files(); track f.id) {
+    <div class="file-card">
+      <div class="file-card__header">
+        <span class="file-card__name">{{ f.name }}</span>
+        @if (canEdit()) {
+          <button class="file-card__menu" (click)="renameNode(f, $event)" title="Rename">⋮</button>
+          <button class="file-card__delete" (click)="deleteNode(f, $event)" title="Delete">×</button>
+        }
+      </div>
+      <a class="file-card__preview" [href]="fileUrl(f.id, f.name)" target="_blank" rel="noopener">
+        <embed [src]="fileUrl(f.id, f.name)" type="application/pdf" class="file-card__embed" />
+      </a>
+    </div>
+    }
+
+    @if (canEdit()) {
+      <label class="file-card file-card--new">
+        <span class="file-card__name">New File</span>
+        <span class="file-card__plus">+</span>
+        <input type="file" accept=".pdf,application/pdf" multiple (change)="onFileSelected($event)" hidden />
+      </label>
+    }
+  </div>
+  }
+
+  @if (loading()) {
+  <div class="loader">Loading…</div>
+  }
+
+</main>

@@ -1,0 +1,276 @@
+$background: #ffffff;
+$primary: #174d28;
+$secondary: #cbcbcb;
+$tertiary: #f2f2f2;
+$accent: #4d1717;
+
+:host {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.container {
+    padding: 1rem;
+    width: 100vw;
+    height: 100vh;
+    display: grid;
+    grid-template-areas:
+        "sidebar header"
+        "sidebar content"
+        "sidebar content";
+    gap: 0.5rem;
+    background-color: #ffffff;
+    grid-template-columns: clamp(128px, 25vw, 256px) 3fr;
+    grid-template-rows: 1fr 9fr;
+
+    h1 {
+        font-family: 'Work Sans';
+        font-weight: 700;
+        font-size: clamp(20px, 3vw, 32px);
+        margin: 0;
+    }
+
+    .subtext {
+        font-family: 'Work Sans';
+        font-weight: 500;
+        font-size: clamp(10px, 1.2vw, 15px);
+        margin: 1rem;
+    }
+
+    p {
+        font-family: 'Work Sans';
+        font-weight: 500;
+        font-size: clamp(20px, 2.5vw, 24px);
+        margin: 1rem;
+    }
+
+    #widgets {
+        margin-top: 0;
+    }
+
+    .sidebar,
+    .header,
+    .content {
+        background-color: $tertiary;
+        border-radius: 1rem;
+    }
+
+    .sidebar {
+        grid-area: sidebar;
+        display: flex;
+        flex-direction: column;
+
+        hr {
+            width: 90%;
+        }
+
+        .logo {
+            padding: 1rem 5% 0 5%;
+        }
+
+        .sidebar_nav {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 0.5rem 1rem;
+            font-family: 'Work Sans';
+        }
+
+        .sidebar_label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0.25rem 0 0.5rem;
+        }
+
+        .sidebar_link {
+            display: block;
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            text-decoration: none;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: left;
+            font-family: inherit;
+            transition: background 0.15s, color 0.15s;
+
+            &:hover {
+                background: rgba(0, 0, 0, 0.05);
+                color: #111;
+            }
+
+            &--active {
+                background: #e8f2eb;
+                color: #14532d;
+            }
+
+            &--logout {
+                color: #b91c1c;
+                margin-top: auto;
+
+                &:hover { background: #fee2e2; color: #991b1b; }
+            }
+        }
+    }
+
+    .header {
+        grid-area: header;
+        padding: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        // Hamburger only visible on mobile
+        .hamburger {
+            display: none;
+            background: #ffffff;
+            border: none;
+            border-radius: 100px;
+            width: 40px;
+            height: 40px;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+
+            &:hover { background: #f3f4f6; }
+        }
+
+        .search_bar {
+            display: flex;
+            background-color: #ffffff;
+            padding: 0.5rem;
+            border-radius: 100px;
+            align-items: center;
+            flex: 1;
+            min-width: 0;
+
+            #searchbar {
+                border-radius: 0;
+                border-color: transparent;
+                width: 100%;
+                outline: none;
+            }
+        }
+
+        .profile {
+            background-color: #ffffff;
+            display: flex;
+            margin-left: auto;
+            align-items: center;
+            padding: 0.5rem;
+            border-radius: 100px;
+        }
+    }
+
+    .content {
+        grid-area: content;
+        padding: 1rem;
+        overflow-y: auto;
+        min-height: 0;
+    }
+
+    .widgets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .comparison {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .widget {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 8px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        border-radius: 0.5rem;
+        transition: background 0.15s;
+
+        &:hover { background: rgba(0, 0, 0, 0.05); }
+
+        img {
+            width: 1.5rem;
+            height: 1.5rem;
+            object-fit: contain;
+        }
+    }
+
+    .menu-backdrop {
+        display: none;     // shown only on mobile via media query
+    }
+}
+
+// ─── Mobile layout ─────────────────────────────────────────────────────────
+// Stack: header (logo+search+hamburger) → content (widgets).
+// Sidebar slides down as a dropdown when the hamburger is tapped.
+@media (max-width: 768px) {
+    .container {
+        height: auto;
+        min-height: 100vh;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+        grid-template-areas:
+            "header"
+            "content";
+        overflow-y: auto;
+        padding: 0.75rem;
+
+        .header {
+            .hamburger {
+                display: inline-flex;
+            }
+
+            // Hide the desktop logo container on mobile — the sidebar shows it instead
+            // when opened. (Could also be moved into header; left in sidebar for simplicity.)
+        }
+
+        // Sidebar becomes a dropdown panel anchored under the header
+        .sidebar {
+            grid-area: unset;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 30;
+            max-height: 0;
+            overflow: hidden;
+            margin: 0.75rem;
+            padding: 0;
+            border-radius: 1rem;
+            transition: max-height 0.25s ease, padding 0.25s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+            .logo, hr, .sidebar_nav { opacity: 0; transition: opacity 0.15s; }
+        }
+
+        // Dim background behind the open menu
+        .menu-backdrop {
+            display: block;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            z-index: 20;
+        }
+    }
+
+    .container--menu-open .sidebar {
+        max-height: 80vh;
+        padding-bottom: 0.5rem;
+
+        .logo, hr, .sidebar_nav { opacity: 1; }
+    }
+}

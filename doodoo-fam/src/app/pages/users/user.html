@@ -1,0 +1,99 @@
+<main class="users-page">
+
+  <div class="users-header">
+    <h2 class="users-title">Users</h2>
+    @if (canManage()) {
+      <button class="btn-primary" (click)="showAddForm.set(!showAddForm())">
+        {{ showAddForm() ? 'Cancel' : '+ Add user' }}
+      </button>
+    }
+  </div>
+
+  @if (error()) {
+    <div class="error-banner">{{ error() }}</div>
+  }
+
+  <!-- Add-user form -->
+  @if (showAddForm()) {
+    <form class="add-form" (ngSubmit)="addUser()">
+      <h3 class="add-form__title">New user</h3>
+      <div class="add-form__fields">
+        <div class="field">
+          <label class="field-label" for="new-name">Name (optional)</label>
+          <input id="new-name" class="field-input" type="text" placeholder="Full name"
+                 [ngModel]="newName()" (ngModelChange)="newName.set($event)" name="name" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="new-email">Email</label>
+          <input id="new-email" class="field-input" type="email" placeholder="user@email.com" required
+                 [ngModel]="newEmail()" (ngModelChange)="newEmail.set($event)" name="email" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="new-password">Password</label>
+          <input id="new-password" class="field-input" type="password" placeholder="Temporary password" required
+                 [ngModel]="newPassword()" (ngModelChange)="newPassword.set($event)" name="password" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="new-role">Role</label>
+          <select id="new-role" class="field-input" [ngModel]="newRole()" (ngModelChange)="newRole.set($event)" name="role">
+            <option value="admin">Admin</option>
+            <option value="read-only">Read-only</option>
+          </select>
+        </div>
+      </div>
+      <div class="add-form__actions">
+        <button class="btn-primary" type="submit" [disabled]="adding()">
+          {{ adding() ? 'Adding…' : 'Add user' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  <!-- Users table -->
+  @if (loading()) {
+    <div class="loader">Loading…</div>
+  } @else {
+    <div class="users-table-wrap">
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Added</th>
+            @if (canManage()) { <th>Actions</th> }
+          </tr>
+        </thead>
+        <tbody>
+          @for (u of users(); track u.id) {
+            <tr [class.row--self]="u.id === currentUser()?.id">
+              <td>{{ u.name || '—' }}</td>
+              <td>{{ u.email }}</td>
+              <td>
+                <span [class]="roleBadgeClass(u.role)">{{ u.role }}</span>
+              </td>
+              <td>{{ formatDate(u.created_at) }}</td>
+              @if (canManage()) {
+                <td class="actions-cell">
+                  @if (canModify(u)) {
+                    <select class="role-select"
+                            [ngModel]="u.role"
+                            (ngModelChange)="changeRole(u, $event)"
+                            [name]="'role-' + u.id">
+                      <option value="admin">Admin</option>
+                      <option value="read-only">Read-only</option>
+                    </select>
+                    <button class="btn-delete" (click)="deleteUser(u)" title="Delete user">×</button>
+                  } @else {
+                    <span class="actions-locked">—</span>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+</main>

@@ -1,0 +1,43 @@
+$text:       #111111;
+$text-muted: #6b7280;
+$text-hint:  #9ca3af;
+
+$border:     #e5e7eb;
+$border-2:   #d1d5db;
+
+$surface:    #ffffff;
+$surface-2:  #f9fafb;
+
+$radius:     8px;
+$radius-sm:  6px;
+
+$brand:      #174d28;
+$brand-light:#e8f2eb;
+
+:root {
+  --text:       #{$text};
+  --text-muted: #{$text-muted};
+  --text-hint:  #{$text-hint};
+  --border:     #{$border};
+  --border-2:   #{$border-2};
+  --surface:    #{$surface};
+  --surface-2:  #{$surface-2};
+  --radius:     #{$radius};
+  --radius-sm:  #{$radius-sm};
+  --brand:      #{$brand};
+  --brand-light:#{$brand-light};
+}
+
+
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden; 
+}

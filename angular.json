@@ -1,0 +1,91 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "cli": {
+    "analytics": false
+  },
+  "newProjectRoot": "projects",
+  "projects": {
+    "doodoo-fam": {
+      "projectType": "application",
+      "root": "doodoo-fam",
+      "sourceRoot": "doodoo-fam/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "dist/doodoo-fam",
+            "browser": "doodoo-fam/src/main.ts",
+            "server": "doodoo-fam/src/main.server.ts",
+            "ssr": {
+              "entry": "doodoo-fam/src/server.ts"
+            },
+            "tsConfig": "doodoo-fam/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "doodoo-fam/public"
+              }
+            ],
+            "styles": ["doodoo-fam/src/styles.scss"],
+            "outputMode": "server"
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kb",
+                  "maximumError": "1mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "12kb",
+                  "maximumError": "20kb"
+                }
+              ],
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "doodoo-fam/src/environments/environment.ts",
+                  "with": "doodoo-fam/src/environments/environment.prod.ts"
+                }
+              ]
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": {},
+          "configurations": {
+            "production": {
+              "buildTarget": "doodoo-fam:build:production"
+            },
+            "development": {
+              "buildTarget": "doodoo-fam:build:development",
+              "proxyConfig": "doodoo-fam/proxy.conf.json"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "doodoo-fam/**/*.ts",
+              "doodoo-fam/**/*.html"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

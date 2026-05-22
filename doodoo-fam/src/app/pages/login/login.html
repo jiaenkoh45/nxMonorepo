@@ -1,0 +1,65 @@
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-header">
+      <span class="brand-mark"></span>
+      <h1 class="login-title">DooAccount</h1>
+      <p class="login-subtitle">Sign in to continue</p>
+    </div>
+
+    <form class="login-form" (ngSubmit)="onLogin()">
+      <div class="field">
+        <label class="field-label" for="email">Gmail</label>
+        <input
+          id="email"
+          class="field-input"
+          type="email"
+          placeholder="you@gmail.com"
+          autocomplete="email"
+          [ngModel]="email()"
+          (ngModelChange)="email.set($event)"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="password">Password</label>
+        <div class="password-wrapper">
+          <input
+            id="password"
+            class="field-input"
+            [type]="showPassword() ? 'text' : 'password'"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            [ngModel]="password()"
+            (ngModelChange)="password.set($event)"
+          />
+          <button
+            type="button"
+            class="toggle-password"
+            (click)="togglePassword()"
+            [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+          >
+            <span class="material-symbols-outlined">
+              {{ showPassword() ? 'visibility_off' : 'visibility' }}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      @if (error()) {
+        <p class="login-error">{{ error() }}</p>
+      }
+
+      <div class="forgot-row">
+        @if (showForgotMessage()) {
+          <span class="forgot-message">Ask an Admin to reset your password.</span>
+        } @else {
+          <a href="#" class="forgot-link" (click)="onForgotPassword($event)">Forgot password?</a>
+        }
+      </div>
+
+      <button type="submit" class="btn-login" [disabled]="loading()">
+        {{ loading() ? 'Signing in…' : 'Sign in' }}
+      </button>
+    </form>
+  </div>
+</div>
