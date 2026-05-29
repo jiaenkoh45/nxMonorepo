@@ -81,6 +81,8 @@ export class Comparison {
   fiJob           = signal<FiJob | null>(null);
   fiJobRunning    = computed(() => this.fiJob()?.status === 'running');
   fiResult        = computed(() => this.fiJob()?.status === 'done' ? this.fiJob()!.result : null);
+  fiMatchCount    = computed(() => this.fiResult()?.pairs.reduce((n, p) => n + p.items.filter(i => i.status === 'matched').length, 0) ?? 0);
+  fiMismatchCount = computed(() => this.fiResult()?.pairs.reduce((n, p) => n + p.items.filter(i => i.status !== 'matched').length, 0) ?? 0);
 
   private fiSub: Subscription | null = null;
 
@@ -208,6 +210,33 @@ export class Comparison {
           supplierFiles: [],
         },
       ],
+    });
+  }
+
+  loadSampleFiResult(): void {
+    this.fiJob.set({
+      status: 'done',
+      message: 'Done',
+      result: {
+        totalPairs: 2,
+        mismatchCount: 1,
+        pairs: [
+          {
+            fiOrderId: 'FI-12345', rowIndex: 0,
+            doodooOrderId: '000412', pairStatus: 'compared',
+            items: [
+              { productCode: 'RM-001', productName: 'Raw Material A', fiQty: 100, doodooQty: 100, status: 'matched' },
+              { productCode: 'RM-002', productName: 'Raw Material B', fiQty: 200, doodooQty: 150, status: 'qty_mismatch' },
+              { productCode: 'FG-003', productName: 'Finished Goods C', fiQty: 50, doodooQty: 0,  status: 'fi_only' },
+            ],
+          },
+          {
+            fiOrderId: 'FI-12345', rowIndex: 1,
+            doodooOrderId: null, pairStatus: 'unlinked',
+            items: [],
+          },
+        ],
+      },
     });
   }
 

@@ -306,6 +306,7 @@
           }
         </button>
       </div>
+      <button class="btn-sample" (click)="loadSampleFiResult()">View sample results</button>
 
       @if (fiJob()?.status === 'error') {
         <div class="error-banner">
@@ -316,10 +317,77 @@
     }
 
     @if (fiResult()) {
-      <div class="fi-results-placeholder">
-        <p>Results ready — will be rendered in Task 12.</p>
-        <button class="btn-compare" (click)="fiJob.set(null)">Start a new comparison</button>
+    <div class="fi-results">
+
+      <div class="results-header">
+        <h3 class="page-title">Results</h3>
+        <div class="results-badges">
+          <span class="badge badge--ok">{{ fiMatchCount() }} matched</span>
+          @if (fiMismatchCount() > 0) {
+            <span class="badge badge--fail">{{ fiMismatchCount() }} mismatched</span>
+          }
+        </div>
       </div>
+
+      @for (pair of fiResult()!.pairs; track pair.fiOrderId + pair.rowIndex) {
+
+        @if (pair.pairStatus === 'unlinked') {
+          <div class="fi-warning-banner">
+            <span class="material-symbols-outlined">warning</span>
+            FI order {{ pair.fiOrderId }} row {{ pair.rowIndex + 1 }}: no doodoo520 order ID found in PDF.
+          </div>
+        } @else if (pair.pairStatus === 'doodoo_not_found') {
+          <div class="fi-warning-banner">
+            <span class="material-symbols-outlined">warning</span>
+            FI order {{ pair.fiOrderId }} row {{ pair.rowIndex + 1 }}: doodoo520 order #{{ pair.doodooOrderId }} not found.
+          </div>
+        } @else {
+          <div class="fi-pair-card">
+            <div class="fi-pair-card__header">
+              <span class="fi-pair-card__title">
+                FI {{ pair.fiOrderId }} → Doodoo #{{ pair.doodooOrderId }}
+              </span>
+              <span class="badge"
+                [class.badge--ok]="pair.items.every(i => i.status === 'matched')"
+                [class.badge--fail]="pair.items.some(i => i.status !== 'matched')">
+                {{ pair.items.filter(i => i.status === 'matched').length }}/{{ pair.items.length }} matched
+              </span>
+            </div>
+
+            <div class="totals-table">
+              <div class="totals-table__head">
+                <span>Code</span>
+                <span>Description</span>
+                <span class="num">FI Qty</span>
+                <span class="num">Admin Qty</span>
+                <span>Status</span>
+              </div>
+              @for (item of pair.items; track item.productCode) {
+              <div class="totals-row" [class.totals-row--mismatch]="item.status !== 'matched'">
+                <span class="totals-row__code">{{ item.productCode }}</span>
+                <span class="totals-row__desc">{{ item.productName }}</span>
+                <span class="totals-row__qty num">{{ item.fiQty > 0 ? item.fiQty : '—' }}</span>
+                <span class="totals-row__qty num">{{ item.doodooQty > 0 ? item.doodooQty : '—' }}</span>
+                <span class="fi-status-badge fi-status-badge--{{ item.status }}">
+                  @if (item.status === 'matched')          { ✓ Match }
+                  @else if (item.status === 'qty_mismatch') { ✗ Qty }
+                  @else if (item.status === 'fi_only')      { FI Only }
+                  @else                                      { Admin Only }
+                </span>
+              </div>
+              }
+            </div>
+          </div>
+        }
+      }
+
+      <div class="results-actions">
+        <button class="btn-compare" (click)="fiJob.set(null); fiOrderIdsInput.set('')">
+          Start a new comparison
+        </button>
+        <button class="btn-sample" (click)="loadSampleFiResult()">View sample</button>
+      </div>
+    </div>
     }
   </div>
   }
