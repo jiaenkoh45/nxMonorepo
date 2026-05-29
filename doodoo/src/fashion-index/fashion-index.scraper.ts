@@ -109,7 +109,63 @@ export class FashionIndexScraper {
   }
 
   async scrapeDoodooOrder(doodooOrderId: string): Promise<DoodooOrderItem[]> {
-    // Implemented in Task 7
-    throw new Error('Not yet implemented');
+    const browser = await chromium.launch({ headless: process.env['PLAYWRIGHT_HEADFUL'] !== 'true' });
+    const ctx = await browser.newContext();
+    try {
+      const page = await ctx.newPage();
+      await this.loginDoodoo(page);
+
+      const ordersHref = await page.$eval(DOODOO_NAV_ORDERS, (el: HTMLAnchorElement) => el.href);
+      await page.goto(ordersHref);
+      await page.waitForLoadState('networkidle');
+
+      await page.fill(DOODOO_ORDER_INPUT, doodooOrderId);
+      await page.click(DOODOO_ORDER_SUBMIT);
+      await page.waitForLoadState('networkidle');
+
+      const detailAnchor = await page.$(DOODOO_DETAIL_LINK);
+      if (!detailAnchor) {
+        this.logger.warn(`Doodoo order ${doodooOrderId} not found — no detail link`);
+        return [];
+      }
+      const detailHref = await detailAnchor.getAttribute('href');
+      if (!detailHref) return [];
+
+      await page.goto(detailHref.startsWith('http') ? detailHref : `${DOODOO_URL}${detailHref}`);
+      await page.waitForLoadState('networkidle');
+
+      return await this.scrapeDoodooItemRows(page);
+    } finally {
+      await ctx.close();
+      await browser.close();
+    }
+  }
+
+  private async loginDoodoo(page: Page): Promise<void> {
+    await page.goto(`${DOODOO_URL}/login`);
+    await page.waitForLoadState('networkidle');
+    await page.fill('input[name="username"], input[name="email"]', process.env['DOODOO_ADMIN_EMAIL'] ?? '');
+    await page.fill('input[name="password"]', process.env['DOODOO_ADMIN_PASSWORD'] ?? '');
+    await page.click('button[type="submit"]');
+    try {
+      await page.waitForSelector('.nav-text', { timeout: 10_000 });
+    } catch {
+      throw new Error('Doodoo520 login failed');
+    }
+  }
+
+  private async scrapeDoodooItemRows(page: Page): Promise<DoodooOrderItem[]> {
+    return page.$$eval(DOODOO_ITEM_ROWS, (rows: Element[]) =>
+      rows.map(row => {
+        const cells = Array.from(row.querySelectorAll('td'))
+          .map(td => td.textContent?.trim().replace(/\s+/g, ' ') ?? '');
+        return {
+          productCode: cells[1] ?? '',
+          productName: cells[0] ?? '',
+          qty:   parseFloat(cells[3] ?? '0') || 0,
+          price: parseFloat(cells[2] ?? '0') || 0,
+        };
+      }).filter(item => item.productCode.length > 0),
+    );
   }
 }
