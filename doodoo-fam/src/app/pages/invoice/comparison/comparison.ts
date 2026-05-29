@@ -2,7 +2,8 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
+import { FiService, FiJob } from './fi.service';
 import { environment } from '../../../../environments/environment';
 import { FsApiService, FsNode } from '../creator/fs.service';
 
@@ -72,9 +73,21 @@ export class Comparison {
   pickerNodes   = signal<FsNode[]>([]);
   pickerLoading = signal(false);
 
+  // ── Mode ──────────────────────────────────────────────────────────────────────
+  activeMode = signal<'pdf' | 'fi'>('pdf');
+
+  // ── FI state ──────────────────────────────────────────────────────────────────
+  fiOrderIdsInput = signal('');
+  fiJob           = signal<FiJob | null>(null);
+  fiJobRunning    = computed(() => this.fiJob()?.status === 'running');
+  fiResult        = computed(() => this.fiJob()?.status === 'done' ? this.fiJob()!.result : null);
+
+  private fiSub: Subscription | null = null;
+
   private http      = inject(HttpClient);
   private sanitizer = inject(DomSanitizer);
   private fsApi     = inject(FsApiService);
+  private fiSvc     = inject(FiService);
 
   // ─── File handling ─────────────────────────────────────────────────────────
 
@@ -205,6 +218,33 @@ export class Comparison {
     this.activeCreditorIdx.set(0);
     this.result.set(null);
     this.parseError.set(null);
+  }
+
+  // ─── FI Comparison ────────────────────────────────────────────────────────
+
+  startFiComparison(): void {
+    const raw = this.fiOrderIdsInput();
+    const orderIds = raw
+      .split(/[\n,]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    if (orderIds.length === 0) return;
+
+    this.fiJob.set({ status: 'running', message: 'Starting…' });
+    this.fiSub?.unsubscribe();
+
+    this.fiSvc.startComparison(orderIds).subscribe({
+      next: ({ jobId }) => {
+        this.fiSub = this.fiSvc.pollJob(jobId).subscribe({
+          next:  job   => this.fiJob.set(job),
+          error: ()    => this.fiJob.set({ status: 'error', message: 'Connection error', error: 'Failed to poll job status' }),
+        });
+      },
+      error: () => {
+        this.fiJob.set({ status: 'error', message: 'Failed to start', error: 'Could not reach server' });
+      },
+    });
   }
 
   // ─── File picker ───────────────────────────────────────────────────────────

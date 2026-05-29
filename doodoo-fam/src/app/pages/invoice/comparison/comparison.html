@@ -1,5 +1,18 @@
 <div class="comparison-container">
 
+  <!-- ── MODE TABS ─────────────────────────────────────────────────── -->
+  <div class="mode-tabs">
+    <button class="mode-tab" [class.mode-tab--active]="activeMode() === 'pdf'"
+      (click)="activeMode.set('pdf')">
+      <span class="material-symbols-outlined">upload_file</span> PDF Upload
+    </button>
+    <button class="mode-tab" [class.mode-tab--active]="activeMode() === 'fi'"
+      (click)="activeMode.set('fi')">
+      <span class="material-symbols-outlined">travel_explore</span> Fashion Index
+    </button>
+  </div>
+
+  @if (activeMode() === 'pdf') {
   <!-- ── UPLOAD VIEW ─────────────────────────────────────────────── -->
   @if (!result()) {
   <div class="upload-view">
@@ -258,6 +271,56 @@
     <div class="results-actions">
       <button class="btn-compare" (click)="reset()">Start a new comparison</button>
     </div>
+  </div>
+  }
+
+  } <!-- /activeMode === 'pdf' -->
+
+  <!-- ── FASHION INDEX MODE ─────────────────────────────────────────── -->
+  @if (activeMode() === 'fi') {
+  <div class="fi-view">
+    <h2 class="page-title">Fashion Index Comparison</h2>
+
+    @if (!fiResult()) {
+    <div class="fi-input-section">
+      <label class="fi-label" for="fi-order-ids">
+        FI Order IDs <span class="fi-label__hint">(one per line or comma-separated)</span>
+      </label>
+      <textarea
+        id="fi-order-ids"
+        class="fi-textarea"
+        rows="5"
+        placeholder="FI-12345&#10;FI-12346"
+        [value]="fiOrderIdsInput()"
+        (input)="fiOrderIdsInput.set($any($event.target).value)">
+      </textarea>
+
+      <div class="compare-action">
+        <button class="btn-compare"
+          [disabled]="fiJobRunning() || fiOrderIdsInput().trim().length === 0"
+          (click)="startFiComparison()">
+          @if (fiJobRunning()) {
+            <span class="material-symbols-outlined spin">sync</span> {{ fiJob()?.message }}
+          } @else {
+            Start Comparison
+          }
+        </button>
+      </div>
+
+      @if (fiJob()?.status === 'error') {
+        <div class="error-banner">
+          <span class="material-symbols-outlined">warning</span> {{ fiJob()?.error }}
+        </div>
+      }
+    </div>
+    }
+
+    @if (fiResult()) {
+      <div class="fi-results-placeholder">
+        <p>Results ready — will be rendered in Task 12.</p>
+        <button class="btn-compare" (click)="fiJob.set(null)">Start a new comparison</button>
+      </div>
+    }
   </div>
   }
 
