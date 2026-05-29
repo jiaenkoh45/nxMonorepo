@@ -8,9 +8,10 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { UsersModule } from './users/users.module';
+import { FashionIndexModule } from './fashion-index/fashion-index.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, UsersModule, InvoiceModule, FsModule],
+  imports: [DatabaseModule, AuthModule, UsersModule, InvoiceModule, FsModule, FashionIndexModule],
   controllers: [AppController],
   providers: [
     AppService,
