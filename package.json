@@ -1,0 +1,11 @@
+{
+  "name": "doo-account",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd doodoo-fam && npm ci && npm run build",
+    "start": "node doodoo-fam/dist/doodoo-fam/server/server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
