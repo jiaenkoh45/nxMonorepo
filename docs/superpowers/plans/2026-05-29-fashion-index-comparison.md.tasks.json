@@ -1,0 +1,89 @@
+{
+  "planPath": "docs/superpowers/plans/2026-05-29-fashion-index-comparison.md",
+  "tasks": [
+    {
+      "id": 1,
+      "subject": "Task 1: Install Playwright and add credentials to .env",
+      "status": "pending",
+      "description": "**Goal:** Playwright is installed in the `doodoo/` project and credentials are available via environment variables so the scraper can read them at runtime.\n\n**Files:**\n- Modify: `doodoo/package.json`\n- Modify: `doodoo/.env`\n\n**Acceptance Criteria:**\n- [ ] `npx playwright --version` runs without error from `doodoo/`\n- [ ] Chromium browser binary is installed\n- [ ] `doodoo/.env` contains all four credential keys\n- [ ] Credentials are never hardcoded in TypeScript source files\n\n**Verify:** From `doodoo/`: `npx playwright --version` → prints a version string like `Version 1.x.x`\n\n```json:metadata\n{\"files\":[\"doodoo/package.json\",\"doodoo/.env\"],\"verifyCommand\":\"cd doodoo && npx playwright --version\",\"acceptanceCriteria\":[\"npx playwright --version runs without error\",\"Chromium binary is installed\",\".env contains FI_EMAIL, FI_PASSWORD, DOODOO_ADMIN_EMAIL, DOODOO_ADMIN_PASSWORD\",\"No credentials in TypeScript source\"]}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task 2: DB migration — fi_sessions, fi_order_pairs, fi_item_comparisons",
+      "status": "pending",
+      "blockedBy": [],
+      "description": "**Goal:** Three new PostgreSQL tables exist that can store Fashion Index comparison sessions, per-order pairs, and per-item results.\n\n**Files:**\n- Create: `doodoo/migrations/004-fi-tables.sql`\n\n**Acceptance Criteria:**\n- [ ] Running the SQL against the database succeeds without errors\n- [ ] `fi_sessions`, `fi_order_pairs`, `fi_item_comparisons` tables exist\n- [ ] Foreign key constraints are in place between the three tables\n\n**Verify:** `psql $DATABASE_URL -c \"\\dt fi_*\"` → lists three tables\n\n```json:metadata\n{\"files\":[\"doodoo/migrations/004-fi-tables.sql\"],\"verifyCommand\":\"psql $DATABASE_URL -c '\\\\dt fi_*'\",\"acceptanceCriteria\":[\"fi_sessions table exists\",\"fi_order_pairs table exists with FK to fi_sessions\",\"fi_item_comparisons table exists with FK to fi_order_pairs\"]}\n```"
+    },
+    {
+      "id": 3,
+      "subject": "Task 3: Shared types — fi.types.ts",
+      "status": "pending",
+      "blockedBy": [],
+      "description": "**Goal:** A single types file defines every interface used by the FI module so later tasks can import from one place without circular dependencies.\n\n**Files:**\n- Create: `doodoo/src/fashion-index/fi.types.ts`\n\n**Acceptance Criteria:**\n- [ ] File compiles without TypeScript errors\n- [ ] FiScrapedItem, FiOrderRow, DoodooOrderItem, FiItemStatus, FiPairStatus, FiItemComparison, FiOrderPairResult, FiComparisonResult, FiJobStatus, FiJob are all exported\n\n**Verify:** `cd doodoo && npx tsc --noEmit` → no errors\n\n```json:metadata\n{\"files\":[\"doodoo/src/fashion-index/fi.types.ts\"],\"verifyCommand\":\"cd doodoo && npx tsc --noEmit\",\"acceptanceCriteria\":[\"All interfaces compile without errors\",\"All required types are exported\"]}\n```"
+    },
+    {
+      "id": 4,
+      "subject": "Task 4: PDF parser — fi-pdf-parser.ts",
+      "status": "pending",
+      "blockedBy": [1, 3],
+      "description": "**Goal:** A pure function that takes a PDF buffer and returns the doodoo520 order ID extracted from the `Content:#XXXXXX` pattern, or `null` if not found.\n\n**Files:**\n- Create: `doodoo/src/fashion-index/fi-pdf-parser.ts`\n- Test: `doodoo/src/fashion-index/fi-pdf-parser.spec.ts`\n\n**Acceptance Criteria:**\n- [ ] Returns the numeric string after `Content:#` when present\n- [ ] Returns null when pattern is absent\n- [ ] Works with whitespace between `Content:` and `#`\n- [ ] All 4 unit tests pass\n\n**Verify:** `cd doodoo && npm test -- --testPathPattern=fi-pdf-parser` → all tests PASS\n\n```json:metadata\n{\"files\":[\"doodoo/src/fashion-index/fi-pdf-parser.ts\",\"doodoo/src/fashion-index/fi-pdf-parser.spec.ts\"],\"verifyCommand\":\"cd doodoo && npm test -- --testPathPattern=fi-pdf-parser\",\"acceptanceCriteria\":[\"Returns order ID string when Content:#XXXXXX present\",\"Returns null when pattern absent\",\"Handles whitespace variant\",\"All 4 tests pass\"]}\n```"
+    },
+    {
+      "id": 5,
+      "subject": "Task 5: Comparison logic — fi-comparison.service.ts",
+      "status": "pending",
+      "blockedBy": [3],
+      "description": "**Goal:** A pure service that takes FI items and doodoo items and returns FiItemComparison[] with each item's status.\n\n**Files:**\n- Create: `doodoo/src/fashion-index/fi-comparison.service.ts`\n- Test: `doodoo/src/fashion-index/fi-comparison.service.spec.ts`\n\n**Acceptance Criteria:**\n- [ ] matched: same code, same qty\n- [ ] qty_mismatch: same code, different qty\n- [ ] fi_only: code in FI but not doodoo\n- [ ] doodoo_only: code in doodoo but not FI\n- [ ] All 5 unit tests pass\n\n**Verify:** `cd doodoo && npm test -- --testPathPattern=fi-comparison` → all tests PASS\n\n```json:metadata\n{\"files\":[\"doodoo/src/fashion-index/fi-comparison.service.ts\",\"doodoo/src/fashion-index/fi-comparison.service.spec.ts\"],\"verifyCommand\":\"cd doodoo && npm test -- --testPathPattern=fi-comparison\",\"acceptanceCriteria\":[\"matched status for equal code+qty\",\"qty_mismatch for same code different qty\",\"fi_only for FI-only items\",\"doodoo_only for doodoo-only items\",\"All 5 tests pass\"]}\n```"
+    },
+    {
+      "id": 6,
+      "subject": "Task 6: Playwright scraper — Fashion Index session",
+      "status": "pending",
+      "blockedBy": [1, 3],
+      "description": "**Goal:** FashionIndexScraper.scrapeOrderRows(fiOrderId) logs into Fashion Index, searches, iterates all result rows, scrapes items, and downloads each PDF buffer.\n\n**Files:**\n- Create: `doodoo/src/fashion-index/fashion-index.scraper.ts`\n- Test: `doodoo/src/fashion-index/fashion-index.scraper.spec.ts`\n\n**Acceptance Criteria:**\n- [ ] Returns FiOrderRow[] — one entry per result row\n- [ ] Each row has items[] with productCode, productName, qty, price\n- [ ] Each row has a pdfBuffer (may be empty Buffer if no PDF found)\n- [ ] Throws 'Fashion Index login failed' when login fails\n- [ ] Unit tests pass\n\n**Verify:** `cd doodoo && npm test -- --testPathPattern=fashion-index.scraper` → all tests PASS\n\n```json:metadata\n{\"files\":[\"doodoo/src/fashion-index/fashion-index.scraper.ts\",\"doodoo/src/fashion-index/fashion-index.scraper.spec.ts\"],\"verifyCommand\":\"cd doodoo && npm test -- --testPathPattern=fashion-index.scraper\",\"acceptanceCriteria\":[\"Returns FiOrderRow[] with items and pdfBuffer\",\"Throws Fashion Index login failed on auth failure\",\"All unit tests pass\"]}\n```"
+    },
+    {
+      "id": 7,
+      "subject": "Task 7: Playwright scraper — Doodoo520 admin session",
+      "status": "pending",
+      "blockedBy": [6],
+      "description": "**Goal:** FashionIndexScraper.scrapeDoodooOrder(doodooOrderId) opens a separate browser context, logs into doodoo520.com/admin, navigates orders, and returns DoodooOrderItem[].\n\n**Files:**\n- Modify: `doodoo/src/fashion-index/fashion-index.scraper.ts`\n- Modify: `doodoo/src/fashion-index/fashion-index.scraper.spec.ts`\n\n**Acceptance Criteria:**\n- [ ] Returns DoodooOrderItem[] with productCode, productName, qty, price\n- [ ] Returns empty array (not throws) when order not found\n- [ ] Throws 'Doodoo520 login failed' when login fails\n- [ ] All tests pass\n\n**Verify:** `cd doodoo && npm test -- --testPathPattern=fashion-index.scraper` → all tests PASS\n\n```json:metadata\n{\"files\":[\"doodoo/src/fashion-index/fashion-index.scraper.ts\",\"doodoo/src/fashion-index/fashion-index.scraper.spec.ts\"],\"verifyCommand\":\"cd doodoo && npm test -- --testPathPattern=fashion-index.scraper\",\"acceptanceCriteria\":[\"Returns DoodooOrderItem[] on success\",\"Returns empty array when order not found\",\"Throws Doodoo520 login failed on auth failure\",\"All tests pass\"]}\n```"
+    },
+    {
+      "id": 8,
+      "subject": "Task 8: FashionIndexService — orchestration + job tracking + DB persistence",
+      "status": "pending",
+      "blockedBy": [2, 4, 5, 6, 7],
+      "description": "**Goal:** FashionIndexService runs the full pipeline as a background job, tracked by an in-memory Map. Persists results to DB on completion.\n\n**Files:**\n- Create: `doodoo/src/fashion-index/fashion-index.service.ts`\n- Test: `doodoo/src/fashion-index/fashion-index.service.spec.ts`\n\n**Acceptance Criteria:**\n- [ ] startJob returns UUID immediately without blocking\n- [ ] getJob returns running status with progress messages\n- [ ] On success: status 'done' with FiComparisonResult\n- [ ] On error: status 'error' with error message\n- [ ] Empty PDF buffer → pairStatus 'unlinked' (not a throw)\n- [ ] Results persisted to fi_sessions, fi_order_pairs, fi_item_comparisons\n- [ ] All 4 unit tests pass\n\n**Verify:** `cd doodoo && npm test -- --testPathPattern=fashion-index.service` → all tests PASS\n\n```json:metadata\n{\"files\":[\"doodoo/src/fashion-index/fashion-index.service.ts\",\"doodoo/src/fashion-index/fashion-index.service.spec.ts\"],\"verifyCommand\":\"cd doodoo && npm test -- --testPathPattern=fashion-index.service\",\"acceptanceCriteria\":[\"startJob returns UUID immediately\",\"Job reaches done with result on success\",\"Job reaches error on scraper failure\",\"Unlinked rows handled without throwing\",\"All 4 tests pass\"]}\n```"
+    },
+    {
+      "id": 9,
+      "subject": "Task 9: FashionIndexController + FashionIndexModule + AppModule wiring",
+      "status": "pending",
+      "blockedBy": [8],
+      "description": "**Goal:** FashionIndexController exposes POST /compare, GET /jobs/:id, GET /history. FashionIndexModule bundles all providers. AppModule imports it.\n\n**Files:**\n- Create: `doodoo/src/fashion-index/fashion-index.controller.ts`\n- Test: `doodoo/src/fashion-index/fashion-index.controller.spec.ts`\n- Create: `doodoo/src/fashion-index/fashion-index.module.ts`\n- Modify: `doodoo/src/app.module.ts`\n\n**Acceptance Criteria:**\n- [ ] POST /api/fashion-index/compare returns { jobId } HTTP 201\n- [ ] GET /api/fashion-index/jobs/:id returns job when found\n- [ ] GET /api/fashion-index/jobs/nonexistent returns HTTP 404\n- [ ] GET /api/fashion-index/history returns array\n- [ ] All endpoints return 401 without JWT\n- [ ] All 4 controller tests pass\n\n**Verify:** `cd doodoo && npm test -- --testPathPattern=fashion-index.controller` → all tests PASS\n\n```json:metadata\n{\"files\":[\"doodoo/src/fashion-index/fashion-index.controller.ts\",\"doodoo/src/fashion-index/fashion-index.controller.spec.ts\",\"doodoo/src/fashion-index/fashion-index.module.ts\",\"doodoo/src/app.module.ts\"],\"verifyCommand\":\"cd doodoo && npm test -- --testPathPattern=fashion-index.controller\",\"acceptanceCriteria\":[\"POST /compare returns jobId\",\"GET /jobs/:id returns job when found\",\"GET /jobs/nonexistent returns 404\",\"GET /history returns array\",\"All 4 tests pass\"]}\n```"
+    },
+    {
+      "id": 10,
+      "subject": "Task 10: Angular FiService",
+      "status": "pending",
+      "blockedBy": [9],
+      "description": "**Goal:** FiService in Angular encapsulates startComparison and pollJob so the component only subscribes to observables.\n\n**Files:**\n- Create: `doodoo-fam/src/app/pages/invoice/comparison/fi.service.ts`\n\n**Acceptance Criteria:**\n- [ ] startComparison(orderIds) returns Observable<{ jobId: string }>\n- [ ] pollJob(jobId) polls every 3 seconds and completes when status is done or error\n- [ ] Uses withCredentials: true on all requests\n- [ ] TypeScript compiles without errors\n\n**Verify:** `cd doodoo-fam && npx tsc --noEmit` → no errors\n\n```json:metadata\n{\"files\":[\"doodoo-fam/src/app/pages/invoice/comparison/fi.service.ts\"],\"verifyCommand\":\"cd doodoo-fam && npx tsc --noEmit\",\"acceptanceCriteria\":[\"startComparison returns Observable<{jobId}>\",\"pollJob polls every 3s and completes on done/error\",\"withCredentials: true on all requests\",\"TypeScript compiles without errors\"]}\n```"
+    },
+    {
+      "id": 11,
+      "subject": "Task 11: Frontend — mode switcher + FI input view",
+      "status": "pending",
+      "blockedBy": [10],
+      "description": "**Goal:** The comparison page gains a mode tab bar and a Fashion Index input view with textarea, start button, progress indicator, and error banner.\n\n**Files:**\n- Modify: `doodoo-fam/src/app/pages/invoice/comparison/comparison.ts`\n- Modify: `doodoo-fam/src/app/pages/invoice/comparison/comparison.html`\n- Modify: `doodoo-fam/src/app/pages/invoice/comparison/comparison.scss`\n\n**Acceptance Criteria:**\n- [ ] Two tabs: PDF Upload and Fashion Index\n- [ ] Tab switching preserves state in each mode\n- [ ] Textarea accepts FI order IDs (newline or comma separated)\n- [ ] Start button disabled when textarea empty or job running\n- [ ] Progress message shown while running\n- [ ] Error banner shown on error\n- [ ] TypeScript compiles without errors\n\n**Verify:** `cd doodoo-fam && npx tsc --noEmit` → no errors; manually verify tabs switch correctly in browser\n\n```json:metadata\n{\"files\":[\"doodoo-fam/src/app/pages/invoice/comparison/comparison.ts\",\"doodoo-fam/src/app/pages/invoice/comparison/comparison.html\",\"doodoo-fam/src/app/pages/invoice/comparison/comparison.scss\"],\"verifyCommand\":\"cd doodoo-fam && npx tsc --noEmit\",\"acceptanceCriteria\":[\"PDF Upload and Fashion Index tabs render\",\"Tab switching works\",\"Textarea accepts IDs\",\"Button disabled when empty or running\",\"Progress message shown while running\",\"Error banner shown on error\"]}\n```"
+    },
+    {
+      "id": 12,
+      "subject": "Task 12: Frontend — FI results view",
+      "status": "pending",
+      "blockedBy": [11],
+      "description": "**Goal:** When a FI job completes, results are displayed grouped by doodoo520 order ID with per-item status badges and warning banners for unlinked/not-found rows.\n\n**Files:**\n- Modify: `doodoo-fam/src/app/pages/invoice/comparison/comparison.ts`\n- Modify: `doodoo-fam/src/app/pages/invoice/comparison/comparison.html`\n- Modify: `doodoo-fam/src/app/pages/invoice/comparison/comparison.scss`\n\n**Acceptance Criteria:**\n- [ ] Results grouped by doodooOrderId in cards\n- [ ] Each row shows code, name, FI qty, doodoo qty, status badge\n- [ ] matched=green, qty_mismatch=red, fi_only/doodoo_only=amber badges\n- [ ] unlinked and doodoo_not_found pairs show amber warning banners\n- [ ] Summary shows matched / mismatched counts\n- [ ] Start new comparison button resets state\n- [ ] Sample result visible via loadSampleFiResult()\n- [ ] TypeScript compiles without errors\n\n**Verify:** `cd doodoo-fam && npx tsc --noEmit` → no errors; click View sample on the Fashion Index tab and verify all cards/badges/banners render correctly\n\n```json:metadata\n{\"files\":[\"doodoo-fam/src/app/pages/invoice/comparison/comparison.ts\",\"doodoo-fam/src/app/pages/invoice/comparison/comparison.html\",\"doodoo-fam/src/app/pages/invoice/comparison/comparison.scss\"],\"verifyCommand\":\"cd doodoo-fam && npx tsc --noEmit\",\"acceptanceCriteria\":[\"Results grouped in cards by doodooOrderId\",\"Status badges correct colours\",\"Unlinked/not-found show amber banners\",\"Summary counts correct\",\"Sample result renders without errors\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-05-29T00:00:00.000Z"
+}
