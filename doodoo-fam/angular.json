@@ -8,28 +8,28 @@
   "projects": {
     "doodoo-fam": {
       "projectType": "application",
-      "root": "doodoo-fam",
-      "sourceRoot": "doodoo-fam/src",
+      "root": "",
+      "sourceRoot": "src",
       "prefix": "app",
       "architect": {
         "build": {
           "builder": "@angular/build:application",
           "options": {
             "outputPath": "dist/doodoo-fam",
-            "browser": "doodoo-fam/src/main.ts",
-            "server": "doodoo-fam/src/main.server.ts",
+            "browser": "src/main.ts",
+            "server": "src/main.server.ts",
             "ssr": {
-              "entry": "doodoo-fam/src/server.ts"
+              "entry": "src/server.ts"
             },
-            "tsConfig": "doodoo-fam/tsconfig.app.json",
+            "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [
               {
                 "glob": "**/*",
-                "input": "doodoo-fam/public"
+                "input": "public"
               }
             ],
-            "styles": ["doodoo-fam/src/styles.scss"],
+            "styles": ["src/styles.scss"],
             "outputMode": "server"
           },
           "configurations": {
@@ -49,8 +49,8 @@
               "outputHashing": "all",
               "fileReplacements": [
                 {
-                  "replace": "doodoo-fam/src/environments/environment.ts",
-                  "with": "doodoo-fam/src/environments/environment.prod.ts"
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
                 }
               ]
             },
@@ -71,7 +71,7 @@
             },
             "development": {
               "buildTarget": "doodoo-fam:build:development",
-              "proxyConfig": "doodoo-fam/proxy.conf.json"
+              "proxyConfig": "proxy.conf.json"
             }
           },
           "defaultConfiguration": "development"
@@ -80,8 +80,8 @@
           "builder": "@angular-eslint/builder:lint",
           "options": {
             "lintFilePatterns": [
-              "doodoo-fam/**/*.ts",
-              "doodoo-fam/**/*.html"
+              "**/*.ts",
+              "**/*.html"
             ]
           }
         }
