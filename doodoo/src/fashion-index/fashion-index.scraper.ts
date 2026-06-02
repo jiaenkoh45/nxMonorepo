@@ -38,10 +38,8 @@ export class FashionIndexScraper {
     await page.waitForLoadState('networkidle');
     await page.fill('input[name="email"]', process.env['FI_EMAIL'] ?? '');
     await page.fill('input[name="password"]', process.env['FI_PASSWORD'] ?? '');
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30_000 }),
-      page.click('button[type="submit"]'),
-    ]);
+    await page.click('button[type="submit"]');
+    await page.waitForLoadState('networkidle', { timeout: 30_000 });
     if (!(await page.$('button:has-text("Log Out")'))) {
       throw new Error('Fashion Index login failed');
     }
