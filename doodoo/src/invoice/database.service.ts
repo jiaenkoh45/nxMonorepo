@@ -7,16 +7,20 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool;
 
   onModuleInit() {
-    this.pool = process.env.DATABASE_URL
-      ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
-      : new Pool({
-          host:     process.env.PG_HOST     || 'localhost',
-          port:     parseInt(process.env.PG_PORT || '5432'),
-          database: process.env.PG_DATABASE || 'doodoo',
-          user:     process.env.PG_USER     || 'doodoo_app',
-          password: process.env.PG_PASSWORD || '',
-          ssl: process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : false,
-        });
+    if (process.env.DATABASE_URL) {
+      const url = new URL(process.env.DATABASE_URL);
+      url.searchParams.delete('sslmode');
+      this.pool = new Pool({ connectionString: url.toString(), ssl: { rejectUnauthorized: false } });
+    } else {
+      this.pool = new Pool({
+        host:     process.env.PG_HOST     || 'localhost',
+        port:     parseInt(process.env.PG_PORT || '5432'),
+        database: process.env.PG_DATABASE || 'doodoo',
+        user:     process.env.PG_USER     || 'doodoo_app',
+        password: process.env.PG_PASSWORD || '',
+        ssl: process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      });
+    }
   }
 
   async onModuleDestroy() {
