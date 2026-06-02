@@ -6,7 +6,7 @@ services:
       repo: jiaenkoh45/nxMonorepo
       branch: master
       deploy_on_push: true
-    build_command: npm install && npx playwright install chromium --with-deps && npm run build
+    build_command: npm install && npx playwright install chromium && npm run build
     run_command: node dist/src/main.js
     environment_slug: node-js
     instance_size_slug: apps-s-1vcpu-0.5gb
