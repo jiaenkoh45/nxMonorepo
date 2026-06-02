@@ -31,7 +31,7 @@ export class FashionIndexScraper {
   }
 
   private async loginFashionIndex(page: Page): Promise<void> {
-    await page.goto(`${FI_URL}`);
+    await page.goto(`${FI_URL}/login`);
     await page.waitForLoadState('networkidle');
     await page.fill('input[name="email"]', process.env['FI_EMAIL'] ?? '');
     await page.fill('input[name="password"]', process.env['FI_PASSWORD'] ?? '');
