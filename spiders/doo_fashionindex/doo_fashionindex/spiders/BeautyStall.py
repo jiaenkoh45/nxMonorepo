@@ -23,12 +23,11 @@ class loginBStall(scrapy.Spider):
 
     def parse_after_login(self, response):
         status = response.xpath("//form/button/text()").get()
-        statusTrimmed = status.strip()
 
-        if statusTrimmed == "Log Out":
-            print("Login succeed")
-        else:
+        if not status or status.strip() != "Log Out":
             print("Login failed")
+            return
+        print("Login succeed")
 
         orderPage = response.xpath("//nav/a[2]/@href").get()
         if orderPage:
