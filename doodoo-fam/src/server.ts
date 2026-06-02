@@ -28,6 +28,13 @@ const angularApp = new AngularNodeAppEngine();
  */
 
 /**
+ * Never SSR-render API routes — these belong to the NestJS service.
+ */
+app.use('/api', (req, res) => {
+  res.status(502).json({ message: 'API service unavailable' });
+});
+
+/**
  * Serve static files from /browser
  */
 app.use(
