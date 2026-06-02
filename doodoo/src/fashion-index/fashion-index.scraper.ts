@@ -37,7 +37,7 @@ export class FashionIndexScraper {
     await page.fill('input[name="password"]', process.env['FI_PASSWORD'] ?? '');
     await page.click('button[type="submit"]');
     try {
-      await page.waitForSelector('button:has-text("Log Out")', { timeout: 10_000 });
+      await page.waitForSelector('button:has-text("Log Out")', { timeout: 30_000 });
     } catch {
       throw new Error('Fashion Index login failed');
     }
