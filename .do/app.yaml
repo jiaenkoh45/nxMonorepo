@@ -7,7 +7,7 @@ services:
       branch: master
       deploy_on_push: true
     build_command: npm install && npm run build
-    run_command: npx playwright install chromium && node dist/src/main.js
+    run_command: npx playwright install --with-deps chromium && node dist/src/main.js
     environment_slug: node-js
     instance_size_slug: apps-s-1vcpu-0.5gb
     http_port: 8080
