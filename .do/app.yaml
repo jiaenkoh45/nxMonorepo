@@ -26,6 +26,9 @@ services:
       - key: DATABASE_URL
         scope: RUN_TIME
         type: SECRET
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: /workspace/doodoo/.cache/ms-playwright
+        scope: RUN_AND_BUILD_TIME
 
   - name: web
     source_dir: /
