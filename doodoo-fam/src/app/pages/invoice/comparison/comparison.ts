@@ -222,7 +222,7 @@ export class Comparison {
         mismatchCount: 1,
         pairs: [
           {
-            fiOrderId: 'FI-12345', rowIndex: 0,
+            fiOrderId: 'FI-12345', orderNumber: 'FI-12345', rowIndex: 0,
             doodooOrderId: '000412', pairStatus: 'compared',
             items: [
               { productCode: 'RM-001', productName: 'Raw Material A', fiQty: 100, doodooQty: 100, status: 'matched' },
@@ -231,7 +231,7 @@ export class Comparison {
             ],
           },
           {
-            fiOrderId: 'FI-12345', rowIndex: 1,
+            fiOrderId: 'FI-12345', orderNumber: 'FI-12345', rowIndex: 1,
             doodooOrderId: null, pairStatus: 'unlinked',
             items: [],
           },
