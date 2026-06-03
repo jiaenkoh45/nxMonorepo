@@ -22,7 +22,8 @@ describe('FashionIndexService', () => {
   });
 
   it('startJob returns a UUID string immediately', () => {
-    scraper.scrapeOrderRows = jest.fn().mockResolvedValue([]);
+    scraper.scrapeAllOrderRows = jest.fn().mockResolvedValue([]);
+    scraper.scrapeAllDoodooOrders = jest.fn().mockResolvedValue(new Map());
     const jobId = service.startJob(['FI-123']);
     expect(typeof jobId).toBe('string');
     expect(jobId.length).toBeGreaterThan(0);
@@ -30,13 +31,13 @@ describe('FashionIndexService', () => {
 
   it('job reaches done status after successful pipeline', async () => {
     const pdfBuffer = Buffer.from('fake');
-    scraper.scrapeOrderRows = jest.fn().mockResolvedValue([
+    scraper.scrapeAllOrderRows = jest.fn().mockResolvedValue([
       { fiOrderId: 'FI-123', rowIndex: 0, items: [{ productCode: 'RM-001', productName: 'Item', qty: 10, price: 5 }], pdfBuffer },
     ]);
     mockExtract.mockResolvedValue('000412');
-    scraper.scrapeDoodooOrder = jest.fn().mockResolvedValue([
-      { productCode: 'RM-001', productName: 'Item', qty: 10, price: 5 },
-    ]);
+    scraper.scrapeAllDoodooOrders = jest.fn().mockResolvedValue(
+      new Map([['000412', [{ productCode: 'RM-001', productName: 'Item', qty: 10, price: 5 }]]]),
+    );
     const mockClient = {
       query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }),
       release: jest.fn(),
@@ -52,7 +53,7 @@ describe('FashionIndexService', () => {
   });
 
   it('job reaches error status when scraper throws', async () => {
-    scraper.scrapeOrderRows = jest.fn().mockRejectedValue(new Error('Fashion Index login failed'));
+    scraper.scrapeAllOrderRows = jest.fn().mockRejectedValue(new Error('Fashion Index login failed'));
 
     const jobId = service.startJob(['FI-123']);
     await new Promise(r => setTimeout(r, 100));
@@ -62,9 +63,10 @@ describe('FashionIndexService', () => {
   });
 
   it('marks row as unlinked when PDF buffer is empty', async () => {
-    scraper.scrapeOrderRows = jest.fn().mockResolvedValue([
+    scraper.scrapeAllOrderRows = jest.fn().mockResolvedValue([
       { fiOrderId: 'FI-123', rowIndex: 0, items: [], pdfBuffer: Buffer.alloc(0) },
     ]);
+    scraper.scrapeAllDoodooOrders = jest.fn().mockResolvedValue(new Map());
     const mockClient = {
       query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }),
       release: jest.fn(),
