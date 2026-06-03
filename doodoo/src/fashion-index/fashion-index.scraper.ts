@@ -1,24 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { chromium, BrowserContext, Page } from 'playwright';
+import { chromium, Page } from 'playwright';
 import { DoodooOrderItem, FiOrderRow, FiScrapedItem } from './fi.types';
 
 // ── Selectors — update here if site markup changes ───────────────────────────
 const FI_URL = 'https://b2b.fashionindex.com.my';
 const DOODOO_URL = 'https://www.doodoo520.com/admin';
-const FI_ORDERS_NAV = 'nav a:nth-child(2)';
+const DOODOO_ORIGIN = 'https://www.doodoo520.com';
+const FI_ORDERS_NAV = 'nav a:nth-of-type(2)';
 const FI_ORDER_ROW = '.border.rounded.order-row';
 const DOODOO_NAV_ORDERS = '#sidebar ul li:nth-child(8) a';
-const DOODOO_ORDER_INPUT = '#main-content input[name="order_id"]';
-const DOODOO_ORDER_SUBMIT = '#main-content form button[type="submit"]';
-const DOODOO_DETAIL_LINK =
-  '#main-content > div:nth-child(3) > div:nth-child(2) > div:nth-child(8) a';
+const DOODOO_ORDER_INPUT = 'input[name="search"]';
+const DOODOO_ORDER_SUBMIT = 'button.search-btn';
+const DOODOO_DETAIL_LINK = 'a.btn-action.btn-outline[title="查看明细/修改"]';
 const DOODOO_ITEM_ROWS = 'tr[id^="row-"]';
 
 @Injectable()
 export class FashionIndexScraper {
   private readonly logger = new Logger(FashionIndexScraper.name);
 
-  async scrapeOrderRows(fiOrderId: string): Promise<FiOrderRow[]> {
+  async scrapeAllOrderRows(fiOrderIds: string[]): Promise<FiOrderRow[]> {
     const browser = await chromium.launch({
       headless: process.env['PLAYWRIGHT_HEADFUL'] !== 'true',
     });
@@ -26,7 +26,12 @@ export class FashionIndexScraper {
     try {
       const page = await ctx.newPage();
       await this.loginFashionIndex(page);
-      return await this.fetchOrderRows(page, ctx, fiOrderId);
+      const rows: FiOrderRow[] = [];
+      for (const fiOrderId of fiOrderIds) {
+        const orderRows = await this.fetchOrderRows(page, fiOrderId);
+        rows.push(...orderRows);
+      }
+      return rows;
     } finally {
       await ctx.close();
       await browser.close();
@@ -39,7 +44,7 @@ export class FashionIndexScraper {
     await page.fill('input[name="email"]', process.env['FI_EMAIL'] ?? '');
     await page.fill('input[name="password"]', process.env['FI_PASSWORD'] ?? '');
     await page.click('button[type="submit"]');
-    await page.waitForLoadState('networkidle', { timeout: 30_000 });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 });
     if (!(await page.$('button:has-text("Log Out")'))) {
       throw new Error('Fashion Index login failed');
     }
@@ -47,7 +52,6 @@ export class FashionIndexScraper {
 
   private async fetchOrderRows(
     page: Page,
-    ctx: BrowserContext,
     fiOrderId: string,
   ): Promise<FiOrderRow[]> {
     const ordersHref = await page.$eval(
@@ -58,7 +62,7 @@ export class FashionIndexScraper {
     await page.waitForLoadState('networkidle');
 
     await page.fill('input[name="order_id"]', fiOrderId);
-    await page.click('form button[type="submit"]');
+    await page.click('button:has-text("Search")');
     await page.waitForLoadState('networkidle');
 
     const rowLinks = await page.$$eval(
@@ -75,20 +79,24 @@ export class FashionIndexScraper {
 
       const items = await this.scrapeItemsFromPage(page);
       const pdfUrl = await page
-        .$eval(
-          'div a[href$=".pdf"], div a[href*="/pdf"]',
-          (a: HTMLAnchorElement) => a.href,
-        )
+        .$eval('a:has-text("Airwaybill")', (a: HTMLAnchorElement) => a.href)
         .catch(() => null);
 
       let pdfBuffer = Buffer.alloc(0);
       if (pdfUrl) {
-        const pdfPage = await ctx.newPage();
-        const response = await pdfPage.goto(pdfUrl);
-        if (response) pdfBuffer = Buffer.from(await response.body());
-        await pdfPage.close();
+        const response = await page.request.get(pdfUrl);
+        const body = Buffer.from(await response.body());
+        if (body.subarray(0, 4).toString('ascii') === '%PDF') {
+          pdfBuffer = body;
+        } else {
+          this.logger.warn(
+            `Airwaybill URL returned non-PDF (status ${response.status()}, starts with: ${body.subarray(0, 50).toString('utf8').replace(/\n/g, ' ')}) for FI order ${fiOrderId} row ${i}`,
+          );
+        }
       } else {
-        this.logger.warn(`No PDF found for FI order ${fiOrderId} row ${i}`);
+        this.logger.warn(
+          `No Airwaybill link found for FI order ${fiOrderId} row ${i}`,
+        );
       }
 
       rows.push({ fiOrderId, rowIndex: i, items, pdfBuffer });
@@ -101,16 +109,35 @@ export class FashionIndexScraper {
     return page.$$eval('div.divide-y > div.flex', (rows: Element[]) =>
       rows
         .map((row) => {
-          const texts = Array.from(row.querySelectorAll('*'))
-            .map((el) => el.textContent?.trim())
-            .filter((t): t is string => !!t && t.length > 0)
-            .map((t) => t.replace(/\s+/g, ' '));
-          return {
-            productCode: texts[1] ?? '',
-            productName: texts[0] ?? '',
-            qty: parseFloat(texts[5] ?? '0') || 0,
-            price: parseFloat(texts[3] ?? '0') || 0,
-          };
+          // Product code: gray span inside the name block
+          const codeEl = row.querySelector('span.text-xs.text-gray-600');
+          const productCode = codeEl?.textContent?.trim() ?? '';
+
+          // Product name: bare text nodes in the same div as the code span
+          const nameContainer = codeEl?.parentElement;
+          let productName = '';
+          if (nameContainer) {
+            productName = Array.from(nameContainer.childNodes)
+              .filter((n) => n.nodeType === Node.TEXT_NODE)
+              .map((n) => n.textContent?.trim() ?? '')
+              .filter((t) => t.length > 0)
+              .join(' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+          }
+
+          // Price [0], Qty [1], Subtotal [2] — in DOM order
+          const valueDivs = Array.from(
+            row.querySelectorAll('.text-center.py-1'),
+          );
+          const rawPrice =
+            valueDivs[0]?.textContent?.trim().replace(/[^\d.]/g, '') ?? '0';
+          const price = parseFloat(rawPrice) || 0;
+          const qty = parseFloat(valueDivs[1]?.textContent?.trim() ?? '0') || 0;
+
+          const rawTexts = valueDivs.map((d) => d.textContent?.trim() ?? '');
+
+          return { productCode, productName, qty, price, rawTexts };
         })
         .filter((item) => item.productCode.length > 0),
     );
@@ -149,7 +176,7 @@ export class FashionIndexScraper {
       await page.goto(
         detailHref.startsWith('http')
           ? detailHref
-          : `${DOODOO_URL}${detailHref}`,
+          : `${DOODOO_ORIGIN}${detailHref}`,
       );
       await page.waitForLoadState('networkidle');
 
@@ -163,14 +190,8 @@ export class FashionIndexScraper {
   private async loginDoodoo(page: Page): Promise<void> {
     await page.goto(`${DOODOO_URL}/login`);
     await page.waitForLoadState('networkidle');
-    await page.fill(
-      'input[name="username"], input[name="email"]',
-      process.env['DOODOO_ADMIN_EMAIL'] ?? '',
-    );
-    await page.fill(
-      'input[name="password"]',
-      process.env['DOODOO_ADMIN_PASSWORD'] ?? '',
-    );
+    await page.fill('#username', process.env['DOODOO_ADMIN_EMAIL'] ?? '');
+    await page.fill('#password', process.env['DOODOO_ADMIN_PASSWORD'] ?? '');
     await page.click('button[type="submit"]');
     try {
       await page.waitForSelector('.nav-text', { timeout: 10_000 });
@@ -183,15 +204,32 @@ export class FashionIndexScraper {
     return page.$$eval(DOODOO_ITEM_ROWS, (rows: Element[]) =>
       rows
         .map((row) => {
-          const cells = Array.from(row.querySelectorAll('td')).map(
-            (td) => td.textContent?.trim().replace(/\s+/g, ' ') ?? '',
-          );
-          return {
-            productCode: cells[1] ?? '',
-            productName: cells[0] ?? '',
-            qty: parseFloat(cells[3] ?? '0') || 0,
-            price: parseFloat(cells[2] ?? '0') || 0,
-          };
+          const productName =
+            row
+              .querySelector('.product-name')
+              ?.textContent?.trim()
+              .replace(/\s+/g, ' ') ?? '';
+
+          const rawMeta =
+            row
+              .querySelector('.product-meta')
+              ?.textContent?.trim()
+              .replace(/\s+/g, ' ') ?? '';
+          const productCode = rawMeta.split('|')[0].trim().replace(/-\d+$/, '');
+
+          const qtyInput = row.querySelector('input.qty-input');
+          const qty = parseFloat(qtyInput?.getAttribute('value') ?? '0') || 0;
+          const price =
+            parseFloat(qtyInput?.getAttribute('data-price') ?? '0') || 0;
+
+          const rawCells = [
+            productName,
+            productCode,
+            String(price),
+            String(qty),
+          ];
+
+          return { productCode, productName, qty, price, rawCells };
         })
         .filter((item) => item.productCode.length > 0),
     );
