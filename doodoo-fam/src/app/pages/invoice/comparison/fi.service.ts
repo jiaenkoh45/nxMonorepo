@@ -13,6 +13,7 @@ export interface FiItemComparison {
 
 export interface FiOrderPairResult {
   fiOrderId: string;
+  orderNumber: string;
   rowIndex: number;
   doodooOrderId: string | null;
   pairStatus: 'compared' | 'unlinked' | 'doodoo_not_found';
