@@ -1,0 +1,26 @@
+{
+  "planPath": "docs/superpowers/plans/2026-06-03-doodoo520-batch-session.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 1: Batch FashionIndex scraper — one session for all FI order IDs",
+      "status": "completed",
+      "description": "**Goal:** Replace `scrapeOrderRows(fiOrderId)` with `scrapeAllOrderRows(fiOrderIds[])` so the browser is launched once, logged in once, and all FI order IDs are fetched in the same session.\n\n**Files:**\n- Modify: `doodoo/src/fashion-index/fashion-index.scraper.ts`\n\n**Acceptance Criteria:**\n- [ ] `scrapeAllOrderRows` is a public method on `FashionIndexScraper`\n- [ ] `scrapeOrderRows` (singular) is removed\n- [ ] Browser is launched and closed exactly once per call to `scrapeAllOrderRows`\n- [ ] All private helpers (`loginFashionIndex`, `fetchOrderRows`, `scrapeItemsFromPage`) are unchanged\n\n**Verify:** `cd doodoo && npx tsc --noEmit` → zero errors\n\n```json:metadata\n{\"files\": [\"doodoo/src/fashion-index/fashion-index.scraper.ts\"], \"verifyCommand\": \"cd doodoo && npx tsc --noEmit\", \"acceptanceCriteria\": [\"scrapeAllOrderRows is a public method on FashionIndexScraper\", \"scrapeOrderRows (singular) is removed\", \"Browser is launched and closed exactly once per call\", \"All private helpers are unchanged\"]}\n```"
+    },
+    {
+      "id": 1,
+      "subject": "Task 2: Batch Doodoo520 scraper — one session for all doodoo order IDs",
+      "status": "completed",
+      "blockedBy": [0],
+      "description": "**Goal:** Replace `scrapeDoodooOrder(doodooOrderId)` with `scrapeAllDoodooOrders(orderIds[])` so one browser session logs in once and loops through all order IDs.\n\n**Files:**\n- Modify: `doodoo/src/fashion-index/fashion-index.scraper.ts`\n\n**Acceptance Criteria:**\n- [ ] `scrapeAllDoodooOrders` returns `Promise<Map<string, DoodooOrderItem[]>>`\n- [ ] `scrapeDoodooOrder` (singular) is removed\n- [ ] Browser launched and closed exactly once\n- [ ] Empty input returns empty Map without browser launch\n- [ ] For each order ID: search → navigate to detail → scrape → navigate back\n- [ ] Missing detail link sets [] and continues loop\n\n**Verify:** `cd doodoo && npx tsc --noEmit` → zero errors\n\n```json:metadata\n{\"files\": [\"doodoo/src/fashion-index/fashion-index.scraper.ts\"], \"verifyCommand\": \"cd doodoo && npx tsc --noEmit\", \"acceptanceCriteria\": [\"scrapeAllDoodooOrders returns Promise<Map<string, DoodooOrderItem[]>>\", \"scrapeDoodooOrder (singular) is removed\", \"Browser launched and closed exactly once\", \"Empty input returns empty Map without browser launch\", \"Missing detail link sets [] and continues loop\"]}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task 3: Restructure pipeline into two phases",
+      "status": "completed",
+      "blockedBy": [0, 1],
+      "description": "**Goal:** Rewrite `runPipeline` in `FashionIndexService` to call `scrapeAllOrderRows` then `scrapeAllDoodooOrders` — one browser session per site — and join the results for comparison.\n\n**Files:**\n- Modify: `doodoo/src/fashion-index/fashion-index.service.ts`\n- Modify: `doodoo/src/fashion-index/fashion-index.service.spec.ts`\n\n**Acceptance Criteria:**\n- All acceptance criteria met\n- TypeScript compiles with zero errors\n- doodoo_not_found test coverage added\n\n**Verify:** `cd doodoo && npx tsc --noEmit` → zero errors\n\n```json:metadata\n{\"files\": [\"doodoo/src/fashion-index/fashion-index.service.ts\", \"doodoo/src/fashion-index/fashion-index.service.spec.ts\"], \"verifyCommand\": \"cd doodoo && npx tsc --noEmit\", \"acceptanceCriteria\": [\"runPipeline does not reference scrapeOrderRows or scrapeDoodooOrder\", \"All FI rows collected before Doodoo scraping begins\", \"Duplicate doodoo IDs deduplicated\", \"TypeScript compiles with zero errors\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-06-03T00:00:00.000Z"
+}

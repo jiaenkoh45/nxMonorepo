@@ -8,6 +8,8 @@ const DOODOO_URL = 'https://www.doodoo520.com/admin';
 const DOODOO_ORIGIN = 'https://www.doodoo520.com';
 const FI_ORDERS_NAV = 'nav a:nth-of-type(2)';
 const FI_ORDER_ROW = '.border.rounded.order-row';
+const FI_ORDER_NUMBER_XPATH =
+  'xpath=/html/body/div/div/main/div/div[2]/div[2]/div[1]/div[2]/div[1]/div[2]';
 const DOODOO_NAV_ORDERS = '#sidebar ul li:nth-child(8) a';
 const DOODOO_ORDER_INPUT = 'input[name="search"]';
 const DOODOO_ORDER_SUBMIT = 'button.search-btn';
@@ -78,6 +80,13 @@ export class FashionIndexScraper {
       await page.goto(rowLinks[i]);
       await page.waitForLoadState('networkidle');
 
+      const orderNumber = await page
+        .locator(FI_ORDER_NUMBER_XPATH)
+        .textContent()
+        .then((t) => t?.trim() ?? '')
+        .catch(() => '');
+      const orderLabel = orderNumber || `${fiOrderId} row ${i}`;
+
       const items = await this.scrapeItemsFromPage(page);
       const pdfUrl = await page
         .$eval('a:has-text("Airwaybill")', (a: HTMLAnchorElement) => a.href)
@@ -91,16 +100,14 @@ export class FashionIndexScraper {
           pdfBuffer = body;
         } else {
           this.logger.warn(
-            `Airwaybill URL returned non-PDF (status ${response.status()}, starts with: ${body.subarray(0, 50).toString('utf8').replace(/\n/g, ' ')}) for FI order ${fiOrderId} row ${i}`,
+            `Airwaybill URL returned non-PDF (status ${response.status()}, starts with: ${body.subarray(0, 50).toString('utf8').replace(/\n/g, ' ')}) for FI order ${orderLabel}`,
           );
         }
       } else {
-        this.logger.warn(
-          `No Airwaybill link found for FI order ${fiOrderId} row ${i}`,
-        );
+        this.logger.warn(`No Airwaybill link found for FI order ${orderLabel}`);
       }
 
-      rows.push({ fiOrderId, rowIndex: i, items, pdfBuffer });
+      rows.push({ fiOrderId, rowIndex: i, orderNumber, items, pdfBuffer });
     }
 
     return rows;

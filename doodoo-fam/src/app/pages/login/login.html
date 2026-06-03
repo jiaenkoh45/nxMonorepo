@@ -15,6 +15,7 @@
           type="email"
           placeholder="you@gmail.com"
           autocomplete="email"
+          name="email"
           [ngModel]="email()"
           (ngModelChange)="email.set($event)"
         />
@@ -29,6 +30,7 @@
             [type]="showPassword() ? 'text' : 'password'"
             placeholder="Enter your password"
             autocomplete="current-password"
+            name="password"
             [ngModel]="password()"
             (ngModelChange)="password.set($event)"
           />

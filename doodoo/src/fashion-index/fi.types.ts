@@ -3,11 +3,13 @@ export interface FiScrapedItem {
   productName: string;
   qty: number;
   price: number;
+  rawTexts?: string[];
 }
 
 export interface FiOrderRow {
   fiOrderId: string;
   rowIndex: number;
+  orderNumber: string;
   items: FiScrapedItem[];
   pdfBuffer: Buffer;
 }
@@ -17,9 +19,14 @@ export interface DoodooOrderItem {
   productName: string;
   qty: number;
   price: number;
+  rawCells?: string[];
 }
 
-export type FiItemStatus = 'matched' | 'qty_mismatch' | 'fi_only' | 'doodoo_only';
+export type FiItemStatus =
+  | 'matched'
+  | 'qty_mismatch'
+  | 'fi_only'
+  | 'doodoo_only';
 export type FiPairStatus = 'compared' | 'unlinked' | 'doodoo_not_found';
 
 export interface FiItemComparison {
@@ -32,6 +39,7 @@ export interface FiItemComparison {
 
 export interface FiOrderPairResult {
   fiOrderId: string;
+  orderNumber: string;
   rowIndex: number;
   doodooOrderId: string | null;
   pairStatus: FiPairStatus;

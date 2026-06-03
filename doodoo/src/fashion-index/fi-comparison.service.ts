@@ -3,9 +3,20 @@ import { DoodooOrderItem, FiItemComparison, FiScrapedItem } from './fi.types';
 
 @Injectable()
 export class FiComparisonService {
-  compare(fiItems: FiScrapedItem[], doodooItems: DoodooOrderItem[]): FiItemComparison[] {
+  compare(
+    fiItems: FiScrapedItem[],
+    doodooItems: DoodooOrderItem[],
+  ): FiItemComparison[] {
     const results: FiItemComparison[] = [];
-    const doodooMap = new Map(doodooItems.map(i => [i.productCode, i]));
+    const doodooMap = new Map<string, DoodooOrderItem>();
+    for (const item of doodooItems) {
+      const existing = doodooMap.get(item.productCode);
+      if (existing) {
+        existing.qty += item.qty;
+      } else {
+        doodooMap.set(item.productCode, { ...item });
+      }
+    }
     const usedCodes = new Set<string>();
 
     for (const fi of fiItems) {

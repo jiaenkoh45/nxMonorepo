@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS fi_order_pairs (
 CREATE TABLE IF NOT EXISTS fi_item_comparisons (
   id            SERIAL PRIMARY KEY,
   pair_id       INT NOT NULL REFERENCES fi_order_pairs(id) ON DELETE CASCADE,
-  product_code  VARCHAR(50)  NOT NULL,
+  product_code  TEXT         NOT NULL,
   product_name  TEXT         NOT NULL,
   fi_qty        NUMERIC      NOT NULL DEFAULT 0,
   doodoo_qty    NUMERIC      NOT NULL DEFAULT 0,

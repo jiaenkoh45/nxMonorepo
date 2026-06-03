@@ -334,18 +334,18 @@
         @if (pair.pairStatus === 'unlinked') {
           <div class="fi-warning-banner">
             <span class="material-symbols-outlined">warning</span>
-            FI order {{ pair.fiOrderId }} row {{ pair.rowIndex + 1 }}: no doodoo520 order ID found in PDF.
+            FI order {{ pair.orderNumber || pair.fiOrderId }} row {{ pair.rowIndex + 1 }}: no doodoo520 order ID found in PDF.
           </div>
         } @else if (pair.pairStatus === 'doodoo_not_found') {
           <div class="fi-warning-banner">
             <span class="material-symbols-outlined">warning</span>
-            FI order {{ pair.fiOrderId }} row {{ pair.rowIndex + 1 }}: doodoo520 order #{{ pair.doodooOrderId }} not found.
+            FI order {{ pair.orderNumber || pair.fiOrderId }} row {{ pair.rowIndex + 1 }}: doodoo520 order #{{ pair.doodooOrderId }} not found.
           </div>
         } @else {
           <div class="fi-pair-card">
             <div class="fi-pair-card__header">
               <span class="fi-pair-card__title">
-                FI {{ pair.fiOrderId }} → Doodoo #{{ pair.doodooOrderId }}
+                FI {{ pair.orderNumber || pair.fiOrderId }} → Doodoo #{{ pair.doodooOrderId }}
               </span>
               <span class="badge"
                 [class.badge--ok]="pair.items.every(i => i.status === 'matched')"

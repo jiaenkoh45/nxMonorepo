@@ -17,7 +17,9 @@ import {
 
 interface DiagPair {
   fiOrderId: string;
+  orderNumber: string;
   rowIndex: number;
+  pdfSize: number;
   doodooOrderId: string | null;
   pairStatus: string;
   fiItems: FiScrapedItem[];
@@ -66,19 +68,24 @@ export class FashionIndexService {
       this.update(jobId, { message: 'Extracting Doodoo order IDs from PDFs…' });
       type RowMeta = {
         fiOrderId: string;
+        orderNumber: string;
         rowIndex: number;
+        pdfSize: number;
         fiItems: FiScrapedItem[];
         doodooOrderId: string | null;
       };
       const rowMetas: RowMeta[] = [];
       for (const row of allFiRows) {
-        if (!row.pdfBuffer || row.pdfBuffer.length === 0) {
-          this.logger.warn(
-            `Empty PDF for FI ${row.fiOrderId} row ${row.rowIndex}`,
-          );
+        const orderLabel =
+          row.orderNumber || `${row.fiOrderId} row ${row.rowIndex}`;
+        const pdfSize = row.pdfBuffer?.length ?? 0;
+        if (pdfSize === 0) {
+          this.logger.warn(`Empty PDF for FI order ${orderLabel}`);
           rowMetas.push({
             fiOrderId: row.fiOrderId,
+            orderNumber: row.orderNumber,
             rowIndex: row.rowIndex,
+            pdfSize,
             fiItems: row.items,
             doodooOrderId: null,
           });
@@ -87,12 +94,14 @@ export class FashionIndexService {
         const doodooOrderId = await extractOrderIdFromPdf(row.pdfBuffer);
         if (!doodooOrderId) {
           this.logger.warn(
-            `No order ID in PDF for FI ${row.fiOrderId} row ${row.rowIndex}`,
+            `No doodoo520 order ID found in PDF for FI order ${orderLabel}`,
           );
         }
         rowMetas.push({
           fiOrderId: row.fiOrderId,
+          orderNumber: row.orderNumber,
           rowIndex: row.rowIndex,
+          pdfSize,
           fiItems: row.items,
           doodooOrderId: doodooOrderId ?? null,
         });
@@ -120,6 +129,7 @@ export class FashionIndexService {
         if (!meta.doodooOrderId) {
           pairs.push({
             fiOrderId: meta.fiOrderId,
+            orderNumber: meta.orderNumber,
             rowIndex: meta.rowIndex,
             doodooOrderId: null,
             pairStatus: 'unlinked',
@@ -127,7 +137,9 @@ export class FashionIndexService {
           });
           diagPairs.push({
             fiOrderId: meta.fiOrderId,
+            orderNumber: meta.orderNumber,
             rowIndex: meta.rowIndex,
+            pdfSize: meta.pdfSize,
             doodooOrderId: null,
             pairStatus: 'unlinked',
             fiItems: meta.fiItems,
@@ -142,6 +154,7 @@ export class FashionIndexService {
         if (doodooItems.length === 0) {
           pairs.push({
             fiOrderId: meta.fiOrderId,
+            orderNumber: meta.orderNumber,
             rowIndex: meta.rowIndex,
             doodooOrderId: meta.doodooOrderId,
             pairStatus: 'doodoo_not_found',
@@ -149,7 +162,9 @@ export class FashionIndexService {
           });
           diagPairs.push({
             fiOrderId: meta.fiOrderId,
+            orderNumber: meta.orderNumber,
             rowIndex: meta.rowIndex,
+            pdfSize: meta.pdfSize,
             doodooOrderId: meta.doodooOrderId,
             pairStatus: 'doodoo_not_found',
             fiItems: meta.fiItems,
@@ -162,6 +177,7 @@ export class FashionIndexService {
         const items = this.comparison.compare(meta.fiItems, doodooItems);
         pairs.push({
           fiOrderId: meta.fiOrderId,
+          orderNumber: meta.orderNumber,
           rowIndex: meta.rowIndex,
           doodooOrderId: meta.doodooOrderId,
           pairStatus: 'compared',
@@ -169,7 +185,9 @@ export class FashionIndexService {
         });
         diagPairs.push({
           fiOrderId: meta.fiOrderId,
+          orderNumber: meta.orderNumber,
           rowIndex: meta.rowIndex,
+          pdfSize: meta.pdfSize,
           doodooOrderId: meta.doodooOrderId,
           pairStatus: 'compared',
           fiItems: meta.fiItems,
@@ -207,11 +225,19 @@ export class FashionIndexService {
 
     for (let p = 0; p < diagPairs.length; p++) {
       const d = diagPairs[p];
+      const fiLabel =
+        d.orderNumber || `${d.fiOrderId} row ${d.rowIndex} _(not extracted)_`;
+      const pdfNote =
+        d.pdfSize > 0 ? `${(d.pdfSize / 1024).toFixed(1)} KB` : '**missing**';
+      const doodooNote = d.doodooOrderId ?? '**not found in PDF**';
       lines.push(
         `---`,
         '',
-        `## Pair ${p + 1}: FI \`${d.fiOrderId}\` row ${d.rowIndex}` +
-          ` → Doodoo \`${d.doodooOrderId ?? 'none'}\` (${d.pairStatus})`,
+        `## ${fiLabel}`,
+        '',
+        `| Pair | FI search ID | PDF | Doodoo order ID | Status |`,
+        `|---|---|---|---|---|`,
+        `| ${p + 1} | \`${d.fiOrderId}\` | ${pdfNote} | ${doodooNote} | ${d.pairStatus} |`,
         '',
       );
 
