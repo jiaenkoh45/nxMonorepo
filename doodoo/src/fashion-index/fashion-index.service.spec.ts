@@ -79,4 +79,27 @@ describe('FashionIndexService', () => {
     expect(job?.status).toBe('done');
     expect(job?.result?.pairs[0].pairStatus).toBe('unlinked');
   });
+
+  it('marks row as doodoo_not_found when doodoo scraper returns empty items for order ID', async () => {
+    const pdfBuffer = Buffer.from('fake-pdf');
+    scraper.scrapeAllOrderRows = jest.fn().mockResolvedValue([
+      { fiOrderId: 'FI-123', rowIndex: 0, items: [], pdfBuffer },
+    ]);
+    mockExtract.mockResolvedValue('000412');
+    scraper.scrapeAllDoodooOrders = jest.fn().mockResolvedValue(
+      new Map([['000412', []]]),
+    );
+    const mockClient = {
+      query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }),
+      release: jest.fn(),
+    };
+    db.connect = jest.fn().mockResolvedValue(mockClient);
+
+    const jobId = service.startJob(['FI-123']);
+    await new Promise(r => setTimeout(r, 100));
+    const job = service.getJob(jobId);
+    expect(job?.status).toBe('done');
+    expect(job?.result?.pairs[0].pairStatus).toBe('doodoo_not_found');
+    expect(job?.result?.pairs[0].items).toEqual([]);
+  });
 });
