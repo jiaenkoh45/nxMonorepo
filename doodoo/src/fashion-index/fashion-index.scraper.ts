@@ -19,6 +19,7 @@ export class FashionIndexScraper {
   private readonly logger = new Logger(FashionIndexScraper.name);
 
   async scrapeAllOrderRows(fiOrderIds: string[]): Promise<FiOrderRow[]> {
+    if (fiOrderIds.length === 0) return [];
     const browser = await chromium.launch({
       headless: process.env['PLAYWRIGHT_HEADFUL'] !== 'true',
     });
