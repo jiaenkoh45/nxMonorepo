@@ -144,7 +144,12 @@ export class FashionIndexScraper {
     );
   }
 
-  async scrapeDoodooOrder(doodooOrderId: string): Promise<DoodooOrderItem[]> {
+  async scrapeAllDoodooOrders(
+    orderIds: string[],
+  ): Promise<Map<string, DoodooOrderItem[]>> {
+    const result = new Map<string, DoodooOrderItem[]>();
+    if (orderIds.length === 0) return result;
+
     const browser = await chromium.launch({
       headless: process.env['PLAYWRIGHT_HEADFUL'] !== 'true',
     });
@@ -160,28 +165,45 @@ export class FashionIndexScraper {
       await page.goto(ordersHref);
       await page.waitForLoadState('networkidle');
 
-      await page.fill(DOODOO_ORDER_INPUT, doodooOrderId);
-      await page.click(DOODOO_ORDER_SUBMIT);
-      await page.waitForLoadState('networkidle');
+      for (const orderId of orderIds) {
+        await page.fill(DOODOO_ORDER_INPUT, orderId);
+        await page.click(DOODOO_ORDER_SUBMIT);
+        await page.waitForLoadState('networkidle');
 
-      const detailAnchor = await page.$(DOODOO_DETAIL_LINK);
-      if (!detailAnchor) {
-        this.logger.warn(
-          `Doodoo order ${doodooOrderId} not found — no detail link`,
+        const detailAnchor = await page.$(DOODOO_DETAIL_LINK);
+        if (!detailAnchor) {
+          this.logger.warn(
+            `Doodoo order ${orderId} not found — no detail link`,
+          );
+          result.set(orderId, []);
+          await page.goto(ordersHref);
+          await page.waitForLoadState('networkidle');
+          continue;
+        }
+
+        const detailHref = await detailAnchor.getAttribute('href');
+        if (!detailHref) {
+          result.set(orderId, []);
+          await page.goto(ordersHref);
+          await page.waitForLoadState('networkidle');
+          continue;
+        }
+
+        await page.goto(
+          detailHref.startsWith('http')
+            ? detailHref
+            : `${DOODOO_ORIGIN}${detailHref}`,
         );
-        return [];
+        await page.waitForLoadState('networkidle');
+
+        const items = await this.scrapeDoodooItemRows(page);
+        result.set(orderId, items);
+
+        await page.goto(ordersHref);
+        await page.waitForLoadState('networkidle');
       }
-      const detailHref = await detailAnchor.getAttribute('href');
-      if (!detailHref) return [];
 
-      await page.goto(
-        detailHref.startsWith('http')
-          ? detailHref
-          : `${DOODOO_ORIGIN}${detailHref}`,
-      );
-      await page.waitForLoadState('networkidle');
-
-      return await this.scrapeDoodooItemRows(page);
+      return result;
     } finally {
       await ctx.close();
       await browser.close();
