@@ -183,6 +183,9 @@ export class FashionIndexScraper {
 
         const detailHref = await detailAnchor.getAttribute('href');
         if (!detailHref) {
+          this.logger.warn(
+            `Doodoo order ${orderId} — detail anchor has no href`,
+          );
           result.set(orderId, []);
           await page.goto(ordersHref);
           await page.waitForLoadState('networkidle');

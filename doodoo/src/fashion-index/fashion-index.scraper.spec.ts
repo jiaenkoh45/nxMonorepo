@@ -46,7 +46,7 @@ describe('FashionIndexScraper.scrapeAllOrderRows', () => {
   });
 });
 
-describe('FashionIndexScraper.scrapeDoodooOrder', () => {
+describe('FashionIndexScraper.scrapeAllDoodooOrders', () => {
   let scraper: FashionIndexScraper;
   let mockPage: any;
   let mockBrowser: any;
@@ -77,15 +77,15 @@ describe('FashionIndexScraper.scrapeDoodooOrder', () => {
 
   it('throws when doodoo login fails', async () => {
     mockPage.waitForSelector.mockRejectedValueOnce(new Error('timeout'));
-    await expect(scraper.scrapeDoodooOrder('000412')).rejects.toThrow('Doodoo520 login failed');
+    await expect(scraper.scrapeAllDoodooOrders(['000412'])).rejects.toThrow('Doodoo520 login failed');
   });
 
-  it('returns empty array when detail link not found', async () => {
+  it('returns map with empty array when detail link not found', async () => {
     mockPage.waitForSelector.mockResolvedValue(undefined);
     mockPage.$eval.mockResolvedValueOnce('https://doodoo520.com/admin/orders');
     mockPage.$.mockResolvedValueOnce(null);
     mockPage.$$eval.mockResolvedValueOnce([]);
-    const result = await scraper.scrapeDoodooOrder('000412');
-    expect(result).toEqual([]);
+    const result = await scraper.scrapeAllDoodooOrders(['000412']);
+    expect(result).toEqual(new Map([['000412', []]]));
   });
 });
