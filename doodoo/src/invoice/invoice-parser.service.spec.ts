@@ -174,3 +174,47 @@ describe('InvoiceParserService client item rows (real smashed forms)', () => {
     );
   });
 });
+
+describe('InvoiceParserService supplier invoice (real smashed forms)', () => {
+  const svc = new InvoiceParserService();
+
+  // Mirrors the actual pdf-parse output of a real supplier invoice
+  // (IV-26060031): the invoice number is smashed against "INVOICE" with no
+  // separator, and item #4 (YZ2) has a blank Discount column, so its row has
+  // no trailing "%" segment.
+  const SUPPLIER_TEXT =
+    'IV-26060031INVOICE\n' +
+    'SUMACO TRADE SDN BHD\n' +
+    'Date \nC.O.D.\n16/06/2026\n' +
+    'NoDescriptionQtyItem CodeDiscountPrice/Unit\nAmount\n' +
+    'Attn :\n' +
+    '45.00\n党参 100克\n1.00UNIT31.50130%BZ25\n' +
+    '23.00\nYZ2【药妆代购】玻璃酸钠滴眼液 OSM 10ml\n1.00UNIT23.004YZ2\n' +
+    'ATTN :  Tan Sioh Kieow\n8\n' +
+    'Total (RM)102.53';
+
+  it('extracts the invoice number when smashed against the INVOICE title', async () => {
+    mockPdfParse.mockResolvedValueOnce({ text: SUPPLIER_TEXT } as any);
+    const [inv] = await svc.parseMarkerFile(Buffer.from('x'), 'iv.pdf');
+    expect(inv.invoiceNo).toBe('IV-26060031');
+  });
+
+  it('parses an item row that has no discount column', async () => {
+    mockPdfParse.mockResolvedValueOnce({ text: SUPPLIER_TEXT } as any);
+    const [inv] = await svc.parseMarkerFile(Buffer.from('x'), 'iv.pdf');
+    const yz2 = inv.items.find((i) => i.code === 'YZ2');
+    expect(yz2).toEqual(
+      expect.objectContaining({ qty: 1, unitPrice: 23, subtotal: 23 }),
+    );
+    expect(yz2?.discount).toBeUndefined();
+  });
+
+  it('still parses a discounted row correctly (regression)', async () => {
+    mockPdfParse.mockResolvedValueOnce({ text: SUPPLIER_TEXT } as any);
+    const [inv] = await svc.parseMarkerFile(Buffer.from('x'), 'iv.pdf');
+    const bz25 = inv.items.find((i) => i.code === 'BZ25');
+    expect(bz25).toEqual(
+      expect.objectContaining({ qty: 1, unitPrice: 45, subtotal: 31.5, discount: '30%' }),
+    );
+  });
+});

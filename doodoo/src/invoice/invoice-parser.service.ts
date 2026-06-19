@@ -414,8 +414,11 @@ export class InvoiceParserService {
       .map((l) => l.trim())
       .filter(Boolean);
 
+    // No trailing \b: pdf-parse can smash the number against the following
+    // word with no separator (e.g. "IV-26060031INVOICE"), and \d/letter are
+    // both word chars so there's no boundary between them to anchor on.
     const invMatch =
-      text.match(/\b(IV-\d+)\b/) ||
+      text.match(/\b(IV-\d+)/) ||
       text.match(/INV(?:OICE)?[\s.]*NO\.?\s*[:#]?\s*([A-Z0-9-]{4,})/i);
     const invoiceNo = invMatch ? (invMatch[1] ?? invMatch[0]) : '';
 
@@ -451,8 +454,11 @@ export class InvoiceParserService {
   //   line i:   "{qty}UNIT{...}{code}" e.g. "4.00UNIT69.72130%H73"
   private parseSupplierItemLines(lines: string[]): InvoiceItem[] {
     const items: InvoiceItem[] = [];
+    // Discount group is optional: rows with a blank Discount column (no
+    // promo applied) render with no "%" segment at all, e.g.
+    // "1.00UNIT23.004YZ2" (qty / amount / seqNo / code, no discount).
     const itemRe =
-      /^(\d+\.\d{2})UNIT(\d+\.\d{2})(\d+?)(\d{1,3}%)([A-Z]{1,3}\d{1,4}(?:-\d+)*)$/;
+      /^(\d+\.\d{2})UNIT(\d+\.\d{2})(\d+?)(\d{1,3}%)?([A-Z]{1,3}\d{1,4}(?:-\d+)*)$/;
 
     for (let i = 0; i < lines.length; i++) {
       const m = lines[i].match(itemRe);
