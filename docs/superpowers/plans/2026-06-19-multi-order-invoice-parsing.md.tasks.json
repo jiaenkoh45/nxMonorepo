@@ -1,0 +1,54 @@
+{
+  "planPath": "docs/superpowers/plans/2026-06-19-multi-order-invoice-parsing.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 0: Characterization — capture real pdf-parse output",
+      "status": "pending",
+      "description": "**Goal:** Capture exactly what pdf-parse emits for the 7-order file and the working single-order file, so split boundary and item-row format are chosen from evidence.\n\n**Files:**\n- Create: doodoo/scripts/dump-pdf-text.ts\n\n**Acceptance Criteria:**\n- Script prints full text + JSON line array for the 7-order file.\n- Output confirms blank-line (\\n\\n) separator between the 7 orders (PAGE-SPLIT CHUNK COUNT: 7).\n- Exact item-row line form recorded (smashed 1BS18 / 29.90129.90 vs spaced).\n\n**Verify:** cd doodoo && npx ts-node scripts/dump-pdf-text.ts \"<path>/7单.pdf\" → 7 page boundaries visible.\n\n```json:metadata\n{\"files\": [\"doodoo/scripts/dump-pdf-text.ts\"], \"verifyCommand\": \"cd doodoo && npx ts-node scripts/dump-pdf-text.ts \\\"/c/Users/jiaen/Documents/doo-account/7单.pdf\\\"\", \"acceptanceCriteria\": [\"prints text + line array\", \"7 page chunks for 7单.pdf\", \"item-row form recorded\"]}\n```"
+    },
+    {
+      "id": 1,
+      "subject": "Task 1: splitIntoOrders() page-splitter",
+      "status": "pending",
+      "blockedBy": [0],
+      "description": "**Goal:** Add a private helper splitting one file's raw extracted text into per-order segments on the \\n\\n page boundary, with a merge-guard for stray blank lines.\n\n**Files:**\n- Modify: doodoo/src/invoice/invoice-parser.service.ts (add helper ~line 474)\n- Test: doodoo/src/invoice/invoice-parser.service.spec.ts (create)\n\n**Acceptance Criteria:**\n- 3-order text joined by \\n\\n splits into 3 segments.\n- Header-less trailing fragment merged into previous segment.\n- Leading empty chunk dropped.\n\n**Verify:** cd doodoo && npx jest invoice-parser.service.spec --silent → splitter tests PASS.\n\n**Steps:** Write 3 failing tests for splitIntoOrders; implement split on /\\n{2,}/ with hasHeader merge-guard; run green; commit.\n\n```json:metadata\n{\"files\": [\"doodoo/src/invoice/invoice-parser.service.ts\", \"doodoo/src/invoice/invoice-parser.service.spec.ts\"], \"verifyCommand\": \"cd doodoo && npx jest invoice-parser.service.spec --silent\", \"acceptanceCriteria\": [\"3 orders -> 3 segments\", \"header-less fragment merged\", \"single order -> 1 segment\"]}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task 2: Template-agnostic header-field regexes",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "**Goal:** Read customerName/orderNo/date from both templates (名字:/BILL:/DATE: and 收货人：/BILL #/DATE <time> <date>).\n\n**Files:**\n- Modify: doodoo/src/invoice/invoice-parser.service.ts:239-248 (name/bill/date) and :476-481 (extractFallbackName)\n- Test: doodoo/src/invoice/invoice-parser.service.spec.ts (append)\n\n**Acceptance Criteria:**\n- 收货人： Jackie Loh 电话： ... -> name Jackie Loh (phone excluded).\n- 名字: Goh Kah Huat -> Goh Kah Huat (regression).\n- BILL #001952 -> 001952; BILL: #000391 -> 000391.\n- DATE 02:53:01 16-06-2026 -> 16-06-2026; DATE: 2026-04-22 -> 2026-04-22.\n\n**Verify:** cd doodoo && npx jest invoice-parser.service.spec --silent → field tests PASS.\n\n**Steps:** Add field tests (depend on Task 3 array return); replace 3 field matches with dual-template regexes; extend extractFallbackName; commit.\n\n```json:metadata\n{\"files\": [\"doodoo/src/invoice/invoice-parser.service.ts\", \"doodoo/src/invoice/invoice-parser.service.spec.ts\"], \"verifyCommand\": \"cd doodoo && npx jest invoice-parser.service.spec --silent\", \"acceptanceCriteria\": [\"new template name/bill/date read\", \"old template regression intact\"]}\n```"
+    },
+    {
+      "id": 3,
+      "subject": "Task 3: parseMarkerFile returns ParsedInvoice[]",
+      "status": "pending",
+      "blockedBy": [2],
+      "description": "**Goal:** Split each file into per-order segments, type-detect+parse each, label filename uniquely, return the array — AND rewrite the client item parser to read the new template's smashed single-line rows (the real 'can't read anything' bug, confirmed by Task 0 evidence).\n\n**Files:**\n- Modify: doodoo/src/invoice/invoice-parser.service.ts:67-107 (parseMarkerFile + new parseSegment) and :282-387 (parseClientItemLines/resolveClientItem/cleanClientDescription rewrite)\n- Test: doodoo/src/invoice/invoice-parser.service.spec.ts (append)\n\n**Acceptance Criteria:**\n- parseMarkerFile returns Promise<ParsedInvoice[]>.\n- 2-order client text yields 2 invoices with own customerName + correct item qty (incl. multi-qty H85 18.00x2=36.00).\n- Smashed single-line rows (1BS18黄瓜籽粉 500克29.90129.90), multi-line wrapped rows, special-price (49.0029.00129.00), gift (99.0010.00), and old Goh multi-line form all parse correctly.\n- Each order filename unique: base + #orderId.\n- Zero-item orders dropped; zero-order file still throws.\n- Single-order file returns 1-element array.\n\n**Verify:** cd doodoo && npx jest invoice-parser.service.spec --silent → all parser tests PASS.\n\n**Steps:** Write failing 2-order + 7 item-row tests; rewrite parseMarkerFile (loop splitIntoOrders→parseSegment→filter→label) and parseClientItemLines/resolveClientItem/cleanClientDescription (group by item-start, join, extract trailing (\\d+\\.\\d{2})(\\d+)(\\d+\\.\\d{2})$); run green; commit. NOTE: also fold in Task 2's name/bill/date regex changes — the field tests call parseMarkerFile()[0] so they only go green once this task lands.\n\n```json:metadata\n{\"files\": [\"doodoo/src/invoice/invoice-parser.service.ts\", \"doodoo/src/invoice/invoice-parser.service.spec.ts\"], \"verifyCommand\": \"cd doodoo && npx jest invoice-parser.service.spec --silent\", \"acceptanceCriteria\": [\"returns array\", \"2 orders parsed with names+qty\", \"smashed single-line rows parsed\", \"multi-qty/special/gift/Goh forms parsed\", \"unique per-order filename\", \"single order -> length 1\"]}\n```"
+    },
+    {
+      "id": 4,
+      "subject": "Task 4: Controller flattens per-file order arrays",
+      "status": "pending",
+      "blockedBy": [3],
+      "description": "**Goal:** Flatten the now-nested parse results before compare/persist.\n\n**Files:**\n- Modify: doodoo/src/invoice/invoice.controller.ts:49-54\n\n**Acceptance Criteria:**\n- clientParsed/supplierParsed are flat ParsedInvoice[].\n- npm run build compiles with no type errors.\n\n**Verify:** cd doodoo && npm run build → exits 0.\n\n**Steps:** Rename to clientNested/supplierNested, add .flat(); build; commit.\n\n```json:metadata\n{\"files\": [\"doodoo/src/invoice/invoice.controller.ts\"], \"verifyCommand\": \"cd doodoo && npm run build\", \"acceptanceCriteria\": [\"flat arrays\", \"build exits 0\"]}\n```"
+    },
+    {
+      "id": 5,
+      "subject": "Task 5: Per-order-unique file keying in persistence",
+      "status": "pending",
+      "blockedBy": [4],
+      "description": "**Goal:** Harden line-item role lookup (drop Array.includes) and rely on Task 3's unique filenames so multiple orders from one file don't collide in fileIdMap.\n\n**Files:**\n- Modify: doodoo/src/invoice/database.service.ts:95-107\n\n**Acceptance Criteria:**\n- Each parsed order maps to its own invoice_files row (unique filename key).\n- Line-item loop iterates client then supplier explicitly (no clientParsed.includes(inv)).\n- npm run build compiles.\n\n**Verify:** cd doodoo && npm run build → exits 0.\n\n**Steps:** Replace combined loop with insertLineItems(invoices, role) called for client then supplier; build; commit.\n\n```json:metadata\n{\"files\": [\"doodoo/src/invoice/database.service.ts\"], \"verifyCommand\": \"cd doodoo && npm run build\", \"acceptanceCriteria\": [\"explicit role iteration\", \"unique file keying\", \"build exits 0\"]}\n```"
+    },
+    {
+      "id": 6,
+      "subject": "Task 6: End-to-end verification with the real files",
+      "status": "pending",
+      "blockedBy": [5],
+      "description": "**Goal:** Prove against the real PDFs that the multi-order file is fully read and the single-order file is unchanged. Acceptance gate.\n\n**Files:**\n- Create (temporary): doodoo/scripts/check-multi-order.ts (deleted after verifying)\n\n**Acceptance Criteria:**\n- 7单.pdf parses to 7 invoices with the 7 expected customer names in order.\n- Order #001920 (Tan Sioh Kieow) shows H85 qty = 2 (the only non-1 qty) — proves quantities read.\n- Goh #000391 still parses to 1 order with YN137 qty1, BS100 qty1.\n- Full unit suite passes: npx jest --silent.\n\n**Verify:** cd doodoo && npx ts-node scripts/check-multi-order.ts → prints OK; npx jest --silent → all green.\n\n**Steps:** Write check script asserting 7 orders + H85 qty2 + single order; run; if item qty wrong, use Task 0 dump to fix parseClientItemLines/resolveClientItem with a real-line test first; run full jest; delete temp script; commit.\n\n```json:metadata\n{\"files\": [\"doodoo/scripts/check-multi-order.ts\"], \"verifyCommand\": \"cd doodoo && npx ts-node scripts/check-multi-order.ts && npx jest --silent\", \"acceptanceCriteria\": [\"7单.pdf -> 7 orders, correct names\", \"H85 qty=2\", \"Goh -> 1 order unchanged\", \"full jest green\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-06-19T00:00:00Z"
+}

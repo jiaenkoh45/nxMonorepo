@@ -1,0 +1,54 @@
+{
+  "planPath": "docs/superpowers/plans/2026-06-04-fi-auto-invoice-collect.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 1: DB Migration — fi-auto-collect schema",
+      "status": "pending",
+      "description": "**Goal:** Add `last_fi_check` column to `users` and create `fi_saved_invoices` tracking table.\n\n**Files:**\n- Create: `doodoo/migrations/006-fi-auto-collect.sql`\n\n**Acceptance Criteria:**\n- [ ] `users` table has a nullable `last_fi_check TIMESTAMPTZ` column\n- [ ] `fi_saved_invoices` table exists with `iws_id` as primary key, `saved_at`, and `fs_node_id`\n- [ ] Migration is idempotent (`IF NOT EXISTS` / column guard)\n\n**Verify:** `psql $DATABASE_URL -f doodoo/migrations/006-fi-auto-collect.sql` twice without error → `\\d users` shows `last_fi_check`, `\\dt fi_saved_invoices` shows the table.\n\n```json:metadata\n{\"files\": [\"doodoo/migrations/006-fi-auto-collect.sql\"], \"verifyCommand\": \"psql $DATABASE_URL -f doodoo/migrations/006-fi-auto-collect.sql\", \"acceptanceCriteria\": [\"users table has last_fi_check TIMESTAMPTZ column\", \"fi_saved_invoices table exists with iws_id PK\", \"Migration is idempotent\"]}\n```"
+    },
+    {
+      "id": 1,
+      "subject": "Task 2: Types — FiDiscoveredOrder + FiAutoCollectJob",
+      "status": "pending",
+      "blockedBy": [],
+      "description": "**Goal:** Extend `fi.types.ts` with `FiDiscoveredOrder` and `FiAutoCollectJob` interfaces.\n\n**Files:**\n- Modify: `doodoo/src/fashion-index/fi.types.ts`\n\n**Acceptance Criteria:**\n- [ ] `FiDiscoveredOrder` has `iwsId: string` and `numericOrderId: string`\n- [ ] `FiAutoCollectJob` has `status`, `message`, `newCount?`, `error?`\n- [ ] `npx tsc --noEmit` passes\n\n**Verify:** `cd doodoo && npx tsc --noEmit` → no errors.\n\n```json:metadata\n{\"files\": [\"doodoo/src/fashion-index/fi.types.ts\"], \"verifyCommand\": \"cd doodoo && npx tsc --noEmit\", \"acceptanceCriteria\": [\"FiDiscoveredOrder interface exists with iwsId and numericOrderId\", \"FiAutoCollectJob interface exists with status/message/newCount/error\", \"TypeScript compiles without errors\"]}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task 3: Scraper — order list discovery",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "**Goal:** Add `scrapeOrderList()` to `FashionIndexScraper` — logs into FI, reads the order list page, returns unique `FiDiscoveredOrder[]`.\n\n**Files:**\n- Modify: `doodoo/src/fashion-index/fashion-index.scraper.ts`\n- Modify: `doodoo/src/fashion-index/fashion-index.scraper.spec.ts`\n\n**Acceptance Criteria:**\n- [ ] Returns only rows where `iwsId` is non-empty and not `'-'`\n- [ ] Results are deduplicated by `iwsId`\n- [ ] Numeric order ID extracted from `href` via `/\\/order\\/(\\d+)/`\n- [ ] Unit test: 3 rows, 2 share same IWS ID → result has 2 entries\n- [ ] Unit test: rows with `iwsId === '-'` excluded\n\n**Verify:** `cd doodoo && npx jest fashion-index.scraper --testNamePattern=\"scrapeOrderList\" --no-coverage` → all pass.\n\n```json:metadata\n{\"files\": [\"doodoo/src/fashion-index/fashion-index.scraper.ts\", \"doodoo/src/fashion-index/fashion-index.scraper.spec.ts\"], \"verifyCommand\": \"cd doodoo && npx jest fashion-index.scraper --testNamePattern=scrapeOrderList --no-coverage\", \"acceptanceCriteria\": [\"scrapeOrderList returns FiDiscoveredOrder[]\", \"Deduplicates by iwsId\", \"Skips rows with no IWS ID\", \"Unit tests pass\"]}\n```"
+    },
+    {
+      "id": 3,
+      "subject": "Task 4: Scraper — download invoice PDFs",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "**Goal:** Add `downloadInvoicePdfs(orders)` to `FashionIndexScraper` — logs into FI once, navigates to each `/order/{numericId}/invoice`, captures as PDF via `page.pdf()`, returns `Map<iwsId, Buffer>`.\n\n**Files:**\n- Modify: `doodoo/src/fashion-index/fashion-index.scraper.ts`\n- Modify: `doodoo/src/fashion-index/fashion-index.scraper.spec.ts`\n\n**Acceptance Criteria:**\n- [ ] Single browser session for all downloads\n- [ ] Returns `Map<string, Buffer>` keyed by `iwsId`\n- [ ] If `page.pdf()` throws, logs warning and continues\n- [ ] Unit test: mock `page.pdf()` returns buffer → map has entry\n- [ ] Unit test: first fails → absent from map, second succeeds → present\n\n**Verify:** `cd doodoo && npx jest fashion-index.scraper --testNamePattern=\"downloadInvoicePdfs\" --no-coverage` → all pass.\n\n```json:metadata\n{\"files\": [\"doodoo/src/fashion-index/fashion-index.scraper.ts\", \"doodoo/src/fashion-index/fashion-index.scraper.spec.ts\"], \"verifyCommand\": \"cd doodoo && npx jest fashion-index.scraper --testNamePattern=downloadInvoicePdfs --no-coverage\", \"acceptanceCriteria\": [\"downloadInvoicePdfs returns Map<iwsId, Buffer>\", \"Failed PDF download is skipped, not thrown\", \"Unit tests pass\"]}\n```"
+    },
+    {
+      "id": 4,
+      "subject": "Task 5: FiAutoCollectService",
+      "status": "pending",
+      "blockedBy": [0, 2, 3],
+      "description": "**Goal:** Implement `FiAutoCollectService` — orchestrates daily collect pipeline as a background job, persists to `fi_saved_invoices`, saves PDFs via `FsService`.\n\n**Files:**\n- Create: `doodoo/src/fashion-index/fi-auto-collect.service.ts`\n- Create: `doodoo/src/fashion-index/fi-auto-collect.service.spec.ts`\n\n**Acceptance Criteria:**\n- [ ] `startCollect(userId)` returns job ID synchronously\n- [ ] Skips IWS IDs already in `fi_saved_invoices`\n- [ ] If no new IWS IDs, job reaches `done` with `newCount: 0` without calling `downloadInvoicePdfs`\n- [ ] Finds \"Fashion Index\" creditor via `LOWER(name) LIKE '%fashion%'`\n- [ ] Creates `YYYY-MM` folder if not present\n- [ ] Inserts each saved invoice into `fi_saved_invoices`\n- [ ] Job reaches `error` on unrecoverable exception\n- [ ] All 4 unit tests pass\n\n**Verify:** `cd doodoo && npx jest fi-auto-collect.service --no-coverage` → all pass.\n\n```json:metadata\n{\"files\": [\"doodoo/src/fashion-index/fi-auto-collect.service.ts\", \"doodoo/src/fashion-index/fi-auto-collect.service.spec.ts\"], \"verifyCommand\": \"cd doodoo && npx jest fi-auto-collect.service --no-coverage\", \"acceptanceCriteria\": [\"startCollect returns job ID synchronously\", \"Skips already-saved IWS IDs\", \"Creates monthly folder if absent\", \"Job status reaches done or error\", \"Unit tests pass\"]}\n```"
+    },
+    {
+      "id": 5,
+      "subject": "Task 6: NestJS wiring — module, controller, FsModule export",
+      "status": "pending",
+      "blockedBy": [4],
+      "description": "**Goal:** Wire `FiAutoCollectService` and controller into NestJS; export `FsService` from `FsModule`.\n\n**Files:**\n- Create: `doodoo/src/fashion-index/fi-auto-collect.controller.ts`\n- Modify: `doodoo/src/fashion-index/fashion-index.module.ts`\n- Modify: `doodoo/src/fs/fs.module.ts`\n\n**Acceptance Criteria:**\n- [ ] `GET /api/fashion-index/collect/check-daily` triggers job if `last_fi_check` is not today, updates DB, returns `{ jobId }`\n- [ ] `GET /api/fashion-index/collect/jobs/:jobId` returns job status\n- [ ] `FsModule` exports `FsService` and `FsStorageService`\n- [ ] `FashionIndexModule` imports `FsModule`\n- [ ] `npx tsc --noEmit` passes\n\n**Verify:** `cd doodoo && npx tsc --noEmit` → no errors.\n\n```json:metadata\n{\"files\": [\"doodoo/src/fashion-index/fi-auto-collect.controller.ts\", \"doodoo/src/fashion-index/fashion-index.module.ts\", \"doodoo/src/fs/fs.module.ts\"], \"verifyCommand\": \"cd doodoo && npx tsc --noEmit\", \"acceptanceCriteria\": [\"check-daily endpoint exists and triggers job\", \"jobs/:jobId endpoint returns status\", \"FsModule exports FsService\", \"TypeScript compiles without errors\"]}\n```"
+    },
+    {
+      "id": 6,
+      "subject": "Task 7: Angular — FiCollectService + Creator banner",
+      "status": "pending",
+      "blockedBy": [5],
+      "description": "**Goal:** Add `FiCollectService` and a dismissible status banner in the Creator component that polls the daily collect job on `ngOnInit`.\n\n**Files:**\n- Create: `doodoo-fam/src/app/pages/invoice/creator/fi-collect.service.ts`\n- Modify: `doodoo-fam/src/app/pages/invoice/creator/creator.ts`\n- Modify: `doodoo-fam/src/app/pages/invoice/creator/creator.html`\n- Modify: `doodoo-fam/src/app/pages/invoice/creator/creator.scss`\n\n**Acceptance Criteria:**\n- [ ] `checkDaily()` calls `GET /api/fashion-index/collect/check-daily`\n- [ ] `ngOnInit` calls `checkDaily()` and starts polling if `jobId` non-null\n- [ ] Banner shows: running / done-new / done-none / error states\n- [ ] File tree refreshes when `done` and `newCount > 0`\n- [ ] Banner is dismissible\n- [ ] Polling interval cleared on component destroy\n- [ ] Production build passes\n\n**Verify:** `cd NxMonorepo/angular && npx nx build doodoo-fam --configuration=production` → `✔ Building...` no errors.\n\n```json:metadata\n{\"files\": [\"doodoo-fam/src/app/pages/invoice/creator/fi-collect.service.ts\", \"doodoo-fam/src/app/pages/invoice/creator/creator.ts\", \"doodoo-fam/src/app/pages/invoice/creator/creator.html\", \"doodoo-fam/src/app/pages/invoice/creator/creator.scss\"], \"verifyCommand\": \"cd NxMonorepo/angular && npx nx build doodoo-fam --configuration=production\", \"acceptanceCriteria\": [\"FiCollectService has checkDaily and getJobStatus methods\", \"Creator banner shows correct state per job status\", \"File tree refreshes on new files saved\", \"Banner dismissible\", \"OnDestroy clears polling interval\", \"Production build passes\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-06-04T00:00:00.000Z"
+}
