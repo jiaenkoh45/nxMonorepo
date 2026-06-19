@@ -15,15 +15,19 @@ const resolved = path.resolve(file);
 const buffer = fs.readFileSync(resolved);
 
 svc.parseMarkerFile(buffer, path.basename(resolved))
-  .then(result => {
-    console.log(JSON.stringify(result, null, 2));
-    console.log(`\n--- Summary ---`);
-    console.log(`Type: ${result.type}`);
-    console.log(`Customer: ${result.customerName}`);
-    console.log(`Date: ${result.date}`);
-    console.log(`Items (${result.items.length}):`);
-    for (const item of result.items) {
-      console.log(`  ${item.code.padEnd(12)} qty=${item.qty}  ${item.description}`);
+  .then(orders => {
+    console.log(JSON.stringify(orders, null, 2));
+    // parseMarkerFile now returns one ParsedInvoice per order (multi-page PDFs
+    // yield multiple); iterate and summarise each.
+    console.log(`\n--- Summary (${orders.length} order(s)) ---`);
+    for (const result of orders) {
+      console.log(`\nType: ${result.type}`);
+      console.log(`Customer: ${result.customerName}`);
+      console.log(`Date: ${result.date}`);
+      console.log(`Items (${result.items.length}):`);
+      for (const item of result.items) {
+        console.log(`  ${item.code.padEnd(12)} qty=${item.qty}  ${item.description}`);
+      }
     }
   })
   .catch(err => {

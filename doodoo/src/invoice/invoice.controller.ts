@@ -46,10 +46,14 @@ export class InvoiceController {
     // CJK filenames like "订单 #000868.pdf" don't end up as "è®¢å #000868.pdf".
     const decodeName = (n: string) => Buffer.from(n, 'latin1').toString('utf8');
 
-    const [clientParsed, supplierParsed] = await Promise.all([
+    const [clientNested, supplierNested] = await Promise.all([
       Promise.all(clientFiles.map(f => this.parser.parseMarkerFile(f.buffer, decodeName(f.originalname)))),
       Promise.all(supplierFiles.map(f => this.parser.parseMarkerFile(f.buffer, decodeName(f.originalname)))),
     ]);
+    // Each file can now yield multiple orders (one per page) — flatten to a
+    // single list of parsed invoices per side.
+    const clientParsed   = clientNested.flat();
+    const supplierParsed = supplierNested.flat();
 
     const comparison = this.parser.compareGroups(clientParsed, supplierParsed);
 

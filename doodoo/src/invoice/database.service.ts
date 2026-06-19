@@ -92,19 +92,25 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
-      for (const inv of [...clientParsed, ...supplierParsed]) {
-        const role = clientParsed.includes(inv) ? 'client' : 'supplier';
-        const fileId = fileIdMap[`${role}:${inv.filename}`];
-        for (const item of inv.items) {
-          await client.query(
-            `INSERT INTO invoice_line_items
-               (file_id, item_code, description, qty, unit_price, subtotal, is_gift)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [fileId, item.code, item.description, item.qty,
-             item.unitPrice ?? null, item.subtotal ?? null, item.isGift ?? false],
-          );
+      const insertLineItems = async (
+        invoices: ParsedInvoice[],
+        role: 'client' | 'supplier',
+      ) => {
+        for (const inv of invoices) {
+          const fileId = fileIdMap[`${role}:${inv.filename}`];
+          for (const item of inv.items) {
+            await client.query(
+              `INSERT INTO invoice_line_items
+                 (file_id, item_code, description, qty, unit_price, subtotal, is_gift)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+              [fileId, item.code, item.description, item.qty,
+               item.unitPrice ?? null, item.subtotal ?? null, item.isGift ?? false],
+            );
+          }
         }
-      }
+      };
+      await insertLineItems(clientParsed, 'client');
+      await insertLineItems(supplierParsed, 'supplier');
 
       await client.query('COMMIT');
       return sessionId as number;
