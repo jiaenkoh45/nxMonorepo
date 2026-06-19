@@ -479,4 +479,27 @@ export class InvoiceParserService {
       text.match(/名字[ \t]*[：:][ \t]*([^\n\r]+)/);
     return m ? m[1].trim() : 'Unknown';
   }
+
+  // Each order is its own PDF page; pdf-parse separates pages with a blank line
+  // ("\n\n"). Split on that boundary, then fold any header-less fragment back
+  // into the previous order so a stray intra-page blank line can't create a
+  // phantom order. Works for both templates (client "LIVE ORDER", supplier
+  // "INVOICE") because it keys on the page break, not the per-template title.
+  private splitIntoOrders(text: string): string[] {
+    const hasHeader = (s: string) => /LIVE\s+ORDER|INVOICE/i.test(s);
+    const chunks = text
+      .split(/\n{2,}/)
+      .map((c) => c.trim())
+      .filter(Boolean);
+
+    const orders: string[] = [];
+    for (const chunk of chunks) {
+      if (orders.length > 0 && !hasHeader(chunk)) {
+        orders[orders.length - 1] += '\n' + chunk; // continuation of prev order
+      } else {
+        orders.push(chunk);
+      }
+    }
+    return orders;
+  }
 }
