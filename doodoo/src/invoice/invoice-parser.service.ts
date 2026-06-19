@@ -67,7 +67,7 @@ export class InvoiceParserService {
   async parseMarkerFile(
     buffer: Buffer,
     filename: string,
-  ): Promise<ParsedInvoice> {
+  ): Promise<ParsedInvoice[]> {
     let textContent: string;
     const jpegBase64: string | null = null;
 
@@ -87,23 +87,53 @@ export class InvoiceParserService {
       );
     }
 
-    const isClient = /LIVE\s+ORDER|名字\s*[：:]/i.test(textContent);
-    const isSupplier =
-      /INVOICE/i.test(textContent) && /UNIT/i.test(textContent);
+    const segments = this.splitIntoOrders(textContent);
+    const orders: ParsedInvoice[] = [];
+
+    for (const segment of segments) {
+      const parsed = this.parseSegment(segment, filename, jpegBase64);
+      // Keep any segment that was recognized as a real order (parseSegment
+      // returns null for unrecognized/empty fragments). A recognized order may
+      // legitimately contain zero *product* rows (e.g. only a discount coupon),
+      // so we do NOT require items.length > 0 here.
+      if (parsed) orders.push(parsed);
+    }
+
+    if (orders.length === 0) {
+      throw new Error(
+        `No orders could be read from "${filename}". Check the invoice template/format.`,
+      );
+    }
+
+    // Multiple orders share one source filename; give each a unique, readable
+    // label so the comparison UI and the DB file rows can tell them apart.
+    if (orders.length > 1) {
+      for (let i = 0; i < orders.length; i++) {
+        const id = orders[i].orderNo || orders[i].invoiceNo || String(i + 1);
+        orders[i].filename = `${filename} #${id}`;
+      }
+    }
+
+    return orders;
+  }
+
+  // Detect the template for a single order segment and route to its parser.
+  private parseSegment(
+    text: string,
+    filename: string,
+    jpegBase64: string | null,
+  ): ParsedInvoice | null {
+    const isClient = /LIVE\s+ORDER|名字\s*[：:]|收货人\s*[：:]/i.test(text);
+    const isSupplier = /INVOICE/i.test(text) && /UNIT/i.test(text);
 
     if (isClient) {
-      return this.parseClientInvoice(textContent, filename, jpegBase64);
+      return this.parseClientInvoice(text, filename, jpegBase64);
     } else if (isSupplier) {
-      return this.parseSupplierInvoice(textContent, filename, jpegBase64);
-    } else {
-      const fallback = this.parseSupplierInvoice(
-        textContent,
-        filename,
-        jpegBase64,
-      );
-      if (fallback.items.length > 0) return fallback;
-      throw new Error(`Cannot determine invoice type for: ${filename}`);
+      return this.parseSupplierInvoice(text, filename, jpegBase64);
     }
+    // Unknown segment: try supplier as a last resort; caller drops empty results.
+    const fallback = this.parseSupplierInvoice(text, filename, jpegBase64);
+    return fallback.items.length > 0 ? fallback : null;
   }
 
   compareGroups(
@@ -236,15 +266,25 @@ export class InvoiceParserService {
       .map((l) => l.trim())
       .filter(Boolean);
 
-    const nameMatch = text.match(/名字\s*[：:]\s*(.+)/);
+    // Name: old template "名字: NAME"; new template "收货人： NAME 电话： ..."
+    // (stop before the trailing phone field or an opening bracket).
+    const nameMatch =
+      text.match(/名字\s*[：:]\s*([^\n\r]+)/) ||
+      text.match(/收货人\s*[：:]\s*([^\n\r（(]+?)(?:\s*电话|\s*[（(]|\s*$)/m);
     const customerName = nameMatch
       ? nameMatch[1].trim()
       : this.extractFallbackName(text);
 
-    const billMatch = text.match(/BILL\s*[：:]\s*#?(\S+)/i);
+    // Bill: "BILL: #000391" or "BILL #001952" or "BILL" then "#001952" on the
+    // next line (colon optional, # optional; \s* crosses the newline).
+    const billMatch = text.match(/BILL\s*[：:]?\s*#?\s*(\d+)/i);
     const orderNo = billMatch ? billMatch[1] : '';
 
-    const dateMatch = text.match(/DATE\s*[：:]\s*(\S+)/i);
+    // Date: capture the calendar date in either ISO (2026-04-22) or
+    // dd-mm-yyyy (16-06-2026) form — the new template prefixes a clock time.
+    const dateMatch =
+      text.match(/\b(\d{4}-\d{2}-\d{2})\b/) ||
+      text.match(/\b(\d{2}-\d{2}-\d{4})\b/);
     const date = dateMatch ? dateMatch[1] : '';
 
     // pdf-parse splits the table header into one line like
@@ -277,78 +317,71 @@ export class InvoiceParserService {
     };
   }
 
-  // Each item in the client invoice begins with a line that smashes
-  // sequence number and product code together — e.g. "1H73", "3ZH26", "4MC11".
+  // An item begins with "{seq}{code}" smashed together at the start of a line,
+  // where code is a product code (BS18, BS0112, YN137...) OR "-" for
+  // discount/gift pseudo-rows. The rest of the row — name, prices, qty,
+  // subtotal — may be on the same line or wrapped across the next lines, up to
+  // the next item-start line.
+  private static readonly CLIENT_ITEM_START =
+    /^(\d+)((?:[A-Z]{1,3}\d{1,4}(?:-\d+)*)|-)(.*)$/;
+
   private parseClientItemLines(lines: string[]): InvoiceItem[] {
-    const itemStartRe = /^(\d+)([A-Z]{1,3}\d{1,4}(?:-\d+)*)$/;
-    type Group = { seqNo: number; code: string; lines: string[] };
+    type Group = { code: string; rest: string[] };
     const groups: Group[] = [];
     let current: Group | null = null;
 
     for (const line of lines) {
-      const m = line.match(itemStartRe);
-      if (m && isProductCode(m[2])) {
+      const m = line.match(InvoiceParserService.CLIENT_ITEM_START);
+      if (m) {
         if (current) groups.push(current);
-        current = { seqNo: parseInt(m[1]), code: m[2], lines: [] };
+        // m[3] is whatever followed "{seq}{code}" on the same line (often the
+        // whole smashed remainder); keep it as the first chunk of this item.
+        current = { code: m[2], rest: m[3] ? [m[3]] : [] };
       } else if (current) {
-        current.lines.push(line);
+        current.rest.push(line);
       }
     }
     if (current) groups.push(current);
 
     return groups
-      .map((g) => this.resolveClientItem(g))
+      .map((g) => this.resolveClientItem(g.code, g.rest))
       .filter((x): x is InvoiceItem => x !== null);
   }
 
-  // Resolve qty / subtotal / unit price from the smashed-together numeric lines.
-  // The trailing line of an item is one of:
-  //   (B) "{unit}{qty}{subtotal}"  e.g. "27.00127.00"  (no separate price line preceded)
-  //   (A) "{qty}{subtotal}"        e.g. "374.70"        (price line(s) preceded)
-  private resolveClientItem(g: {
-    code: string;
-    lines: string[];
-  }): InvoiceItem | null {
-    const { code, lines } = g;
-    const isGift = lines.some((l) => l.includes('赠品'));
+  // Join the item's chunks and pull the trailing "{unit}{qty}{subtotal}" run.
+  // Examples (joined tail -> unit/qty/subtotal):
+  //   "...29.90129.90"        -> 29.90 / 1 / 29.90
+  //   "...18.00236.00"        -> 18.00 / 2 / 36.00   (multi-qty)
+  //   "...49.0029.00129.00"   -> 29.00 / 1 / 29.00   (struck 49.00 left behind)
+  //   "...99.0010.00"         -> 99.00 / 1 / 0.00    (gift)
+  private resolveClientItem(code: string, rest: string[]): InvoiceItem | null {
+    if (!isProductCode(code)) return null; // skip "-", coupons, free gifts
 
-    // Stricter (B) tried first; numeric-only lines preserve order.
-    const unitQtySubRe = /^(\d+\.\d{2})(\d+?)(\d+\.\d{2})$/;
-    const qtySubRe = /^(\d+?)(\d+\.\d{2})$/;
+    const joined = rest.join('');
+    const isGift = /赠品/.test(joined);
 
+    // unit (decimal) + qty (integer) + subtotal (decimal), anchored at the end.
+    // qty is LAZY (\d+?): qty and subtotal are smashed together (e.g. "1"+"29.90"
+    // = "129.90"); a greedy qty would steal the subtotal's leading digit (->12 /
+    // 9.90). Lazy qty yields the correct 1 / 29.90 for the qty 1-9 range that
+    // covers all real rows. (qty >= 10 is inherently ambiguous in this smashed
+    // format and does not occur in the data.)
+    const tail = joined.match(/(\d+\.\d{2})(\d+?)(\d+\.\d{2})\s*$/);
     let qty = 0;
     let unitPrice: number | undefined;
     let subtotal: number | undefined;
+    let descEnd = joined.length;
 
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const l = lines[i];
-      if (!/^[\d.]+$/.test(l)) continue;
-
-      const mB = l.match(unitQtySubRe);
-      if (mB) {
-        unitPrice = parseFloat(mB[1]);
-        qty = parseInt(mB[2]);
-        subtotal = parseFloat(mB[3]);
-        break;
-      }
-      const mA = l.match(qtySubRe);
-      if (mA) {
-        qty = parseInt(mA[1]);
-        subtotal = parseFloat(mA[2]);
-        // The most-recent preceding numeric-only line is the discounted unit price.
-        for (let j = i - 1; j >= 0; j--) {
-          if (/^\d+\.\d{2}$/.test(lines[j])) {
-            unitPrice = parseFloat(lines[j]);
-            break;
-          }
-        }
-        break;
-      }
+    if (tail) {
+      unitPrice = parseFloat(tail[1]);
+      qty = parseInt(tail[2], 10);
+      subtotal = parseFloat(tail[3]);
+      descEnd = tail.index ?? joined.length;
     }
 
     return {
       code,
-      description: this.cleanClientDescription(lines, code),
+      description: this.cleanClientDescription(joined.slice(0, descEnd)),
       qty,
       unitPrice,
       subtotal,
@@ -356,34 +389,17 @@ export class InvoiceParserService {
     };
   }
 
-  // Descriptions may wrap across multiple lines in the PDF. Collect consecutive
-  // text lines, strip any trailing promotion/gift suffix, and join (no separator —
-  // these are wrap continuations, not separate words).
-  private cleanClientDescription(lines: string[], _code: string): string {
-    const codeBuyRe = /\s*[A-Z]{1,3}\d{1,4}(?:-\d+)*\s+买.+$/;
-    const buyOnlyRe = /\s*买\s*\d.+$/;
-    const giftSuffixRe = /\s*赠品\s*\(?[^)]*\)?\s*$/i;
-
-    const parts: string[] = [];
-    for (const l of lines) {
-      if (/^[\d.]+$/.test(l)) break; // pure numeric → end of desc
-      if (l === '赠品' || /^赠品\s*\(/.test(l)) break; // gift label alone
-      if (/^[A-Z]{1,3}\d{1,4}(?:-\d+)*\s+买/.test(l)) break; // pure promotion line
-      if (/^买\s*\d/.test(l)) break;
-      if (!/[一-龥]/.test(l)) continue; // require Chinese chars
-
-      const cleaned = l
-        .replace(codeBuyRe, '')
-        .replace(buyOnlyRe, '')
-        .replace(giftSuffixRe, '')
-        .trim();
-      if (cleaned) parts.push(cleaned);
-
-      // A stripped suffix means this was the final line of the description.
-      if (cleaned !== l.trim()) break;
-    }
-
-    return parts.join('').trim();
+  // Best-effort human-readable name: take the text before the trailing numbers,
+  // drop any leading struck unit price, promo tags, and bracketed annotations.
+  private cleanClientDescription(head: string): string {
+    return head
+      .replace(/^\d+\.\d{2}/, '')                 // a leading struck unit price
+      .replace(/[A-Z]{1,3}\d{1,4}(?:-\d+)*\s*买.*$/, '') // "BS0112 买 1 送..."
+      .replace(/买\s*\d.*$/, '')                  // "买 4 = RM 99..."
+      .replace(/特价|赠品/g, '')                   // promo / gift tags
+      .replace(/[（(【][^）)】]*[）)】]/g, '')       // bracketed annotations
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   // ─── Supplier invoice parser ────────────────────────────────────────────────
@@ -476,7 +492,8 @@ export class InvoiceParserService {
   private extractFallbackName(text: string): string {
     const m =
       text.match(/ATTN[ \t]*[：:][ \t]*([^\n\r]+)/i) ||
-      text.match(/名字[ \t]*[：:][ \t]*([^\n\r]+)/);
+      text.match(/名字[ \t]*[：:][ \t]*([^\n\r]+)/) ||
+      text.match(/收货人[ \t]*[：:][ \t]*([^\n\r（(电]+)/);
     return m ? m[1].trim() : 'Unknown';
   }
 
